@@ -1,8 +1,261 @@
-[phases.setup]
-nixPkgs = ["nodejs", "python3", "gcc", "pkg-config", "cairo", "pango", "libpng", "jpeg", "giflib", "librsvg"]
-
-[phases.install]
-cmds = ["npm install"]
-
-[start]
-cmd = "node index.js"
+026-Jan-12 06:19:56.834436
+Starting deployment of KlementDUPONT/chyklem-bot:main to localhost.
+2026-Jan-12 06:19:57.380980
+Preparing container with helper image: ghcr.io/coollabsio/coolify-helper:1.0.12
+2026-Jan-12 06:20:01.843180
+Image not found (u804s0ko0ogo884occ0oo8kg:51408f324d4d02192a744e05763e69b1aef7f53b). Building new image.
+2026-Jan-12 06:20:02.055213
+----------------------------------------
+2026-Jan-12 06:20:02.059795
+Importing KlementDUPONT/chyklem-bot:main (commit sha 51408f324d4d02192a744e05763e69b1aef7f53b) to /artifacts/j8cwgokoo4goo844sog0c4g8.
+2026-Jan-12 06:20:04.432921
+Generating nixpacks configuration with: nixpacks plan -f json --env NIXPACKS_NODE_VERSION=22 --env COOLIFY_URL=http://u804s0ko0ogo884occ0oo8kg.82.165.11.159.sslip.io --env COOLIFY_FQDN=u804s0ko0ogo884occ0oo8kg.82.165.11.159.sslip.io --env COOLIFY_BRANCH=main --env COOLIFY_RESOURCE_UUID=u804s0ko0ogo884occ0oo8kg /artifacts/j8cwgokoo4goo844sog0c4g8
+2026-Jan-12 06:20:05.181136
+Found application type: node.
+2026-Jan-12 06:20:05.186434
+If you need further customization, please check the documentation of Nixpacks: https://nixpacks.com/docs/providers/node
+2026-Jan-12 06:20:06.977797
+----------------------------------------
+2026-Jan-12 06:20:06.983684
+Building docker image started.
+2026-Jan-12 06:20:06.989164
+To check the current progress, click on Show Debug Logs.
+2026-Jan-12 06:20:41.575325
+========================================
+2026-Jan-12 06:20:41.580133
+Deployment failed: Command execution failed (exit code 1): sudo docker exec j8cwgokoo4goo844sog0c4g8 bash -c 'bash /artifacts/build.sh'
+2026-Jan-12 06:20:41.580133
+Error: #0 building with "default" instance using docker driver
+2026-Jan-12 06:20:41.580133
+2026-Jan-12 06:20:41.580133
+#1 [internal] load build definition from Dockerfile
+2026-Jan-12 06:20:41.580133
+#1 transferring dockerfile: 1.23kB done
+2026-Jan-12 06:20:41.580133
+#1 DONE 0.0s
+2026-Jan-12 06:20:41.580133
+2026-Jan-12 06:20:41.580133
+#2 [internal] load metadata for ghcr.io/railwayapp/nixpacks:ubuntu-1745885067
+2026-Jan-12 06:20:41.580133
+#2 DONE 0.9s
+2026-Jan-12 06:20:41.580133
+2026-Jan-12 06:20:41.580133
+#3 [internal] load .dockerignore
+2026-Jan-12 06:20:41.580133
+#3 transferring context: 2B done
+2026-Jan-12 06:20:41.580133
+#3 DONE 0.0s
+2026-Jan-12 06:20:41.580133
+2026-Jan-12 06:20:41.580133
+#4 [internal] load build context
+2026-Jan-12 06:20:41.580133
+#4 transferring context: 8.75kB done
+2026-Jan-12 06:20:41.580133
+#4 DONE 0.0s
+2026-Jan-12 06:20:41.580133
+2026-Jan-12 06:20:41.580133
+#5 [stage-0 1/9] FROM ghcr.io/railwayapp/nixpacks:ubuntu-1745885067@sha256:d45c89d80e13d7ad0fd555b5130f22a866d9dd10e861f589932303ef2314c7de
+2026-Jan-12 06:20:41.580133
+#5 resolve ghcr.io/railwayapp/nixpacks:ubuntu-1745885067@sha256:d45c89d80e13d7ad0fd555b5130f22a866d9dd10e861f589932303ef2314c7de done
+2026-Jan-12 06:20:41.580133
+#5 sha256:866b26ac4e4722aa6bd512e1e0c5fa91657dc060ef3eebbbcbd6057625e8f518 0B / 335B 0.2s
+2026-Jan-12 06:20:41.580133
+#5 sha256:866b26ac4e4722aa6bd512e1e0c5fa91657dc060ef3eebbbcbd6057625e8f518 335B / 335B 0.2s done
+2026-Jan-12 06:20:41.580133
+#5 sha256:7962e2b983fd33a26ed1c6cd3dc8130d909d793c6a76893ed532f122edf72913 0B / 33.30MB 0.3s
+2026-Jan-12 06:20:41.580133
+#5 sha256:b65af0a51d863b994ae8e73f3b739ad2c14c4ab0f3b8807c7baf25404b897c06 0B / 75.95MB 0.2s
+2026-Jan-12 06:20:41.580133
+#5 sha256:2726e237d1a374379e783053d93d0345c8a3bf3c57b5d35b099de1ad777486ee 0B / 29.72MB 0.2s
+2026-Jan-12 06:20:41.580133
+#5 sha256:7962e2b983fd33a26ed1c6cd3dc8130d909d793c6a76893ed532f122edf72913 8.39MB / 33.30MB 0.5s
+2026-Jan-12 06:20:41.580133
+#5 sha256:7962e2b983fd33a26ed1c6cd3dc8130d909d793c6a76893ed532f122edf72913 13.63MB / 33.30MB 0.6s
+2026-Jan-12 06:20:41.580133
+#5 sha256:b65af0a51d863b994ae8e73f3b739ad2c14c4ab0f3b8807c7baf25404b897c06 6.29MB / 75.95MB 0.5s
+2026-Jan-12 06:20:41.580133
+#5 sha256:7962e2b983fd33a26ed1c6cd3dc8130d909d793c6a76893ed532f122edf72913 20.97MB / 33.30MB 0.8s
+2026-Jan-12 06:20:41.580133
+#5 sha256:b65af0a51d863b994ae8e73f3b739ad2c14c4ab0f3b8807c7baf25404b897c06 14.68MB / 75.95MB 0.6s
+2026-Jan-12 06:20:41.580133
+#5 sha256:2726e237d1a374379e783053d93d0345c8a3bf3c57b5d35b099de1ad777486ee 9.44MB / 29.72MB 0.6s
+2026-Jan-12 06:20:41.580133
+#5 sha256:7962e2b983fd33a26ed1c6cd3dc8130d909d793c6a76893ed532f122edf72913 29.36MB / 33.30MB 0.9s
+2026-Jan-12 06:20:41.580133
+#5 sha256:b65af0a51d863b994ae8e73f3b739ad2c14c4ab0f3b8807c7baf25404b897c06 19.92MB / 75.95MB 0.8s
+2026-Jan-12 06:20:41.580133
+#5 sha256:2726e237d1a374379e783053d93d0345c8a3bf3c57b5d35b099de1ad777486ee 16.78MB / 29.72MB 0.8s
+2026-Jan-12 06:20:41.580133
+#5 sha256:7962e2b983fd33a26ed1c6cd3dc8130d909d793c6a76893ed532f122edf72913 33.30MB / 33.30MB 1.0s done
+2026-Jan-12 06:20:41.580133
+#5 sha256:b65af0a51d863b994ae8e73f3b739ad2c14c4ab0f3b8807c7baf25404b897c06 27.26MB / 75.95MB 0.9s
+2026-Jan-12 06:20:41.580133
+#5 sha256:2726e237d1a374379e783053d93d0345c8a3bf3c57b5d35b099de1ad777486ee 29.72MB / 29.72MB 1.0s done
+2026-Jan-12 06:20:41.580133
+#5 sha256:b65af0a51d863b994ae8e73f3b739ad2c14c4ab0f3b8807c7baf25404b897c06 41.94MB / 75.95MB 1.2s
+2026-Jan-12 06:20:41.580133
+#5 extracting sha256:2726e237d1a374379e783053d93d0345c8a3bf3c57b5d35b099de1ad777486ee
+2026-Jan-12 06:20:41.580133
+#5 sha256:b65af0a51d863b994ae8e73f3b739ad2c14c4ab0f3b8807c7baf25404b897c06 48.23MB / 75.95MB 1.4s
+2026-Jan-12 06:20:41.580133
+#5 sha256:b65af0a51d863b994ae8e73f3b739ad2c14c4ab0f3b8807c7baf25404b897c06 56.62MB / 75.95MB 1.5s
+2026-Jan-12 06:20:41.580133
+#5 sha256:b65af0a51d863b994ae8e73f3b739ad2c14c4ab0f3b8807c7baf25404b897c06 63.96MB / 75.95MB 1.7s
+2026-Jan-12 06:20:41.580133
+#5 sha256:b65af0a51d863b994ae8e73f3b739ad2c14c4ab0f3b8807c7baf25404b897c06 70.14MB / 75.95MB 1.8s
+2026-Jan-12 06:20:41.580133
+#5 extracting sha256:2726e237d1a374379e783053d93d0345c8a3bf3c57b5d35b099de1ad777486ee 0.6s done
+2026-Jan-12 06:20:41.580133
+#5 extracting sha256:7962e2b983fd33a26ed1c6cd3dc8130d909d793c6a76893ed532f122edf72913
+2026-Jan-12 06:20:41.580133
+#5 sha256:b65af0a51d863b994ae8e73f3b739ad2c14c4ab0f3b8807c7baf25404b897c06 75.95MB / 75.95MB 2.0s
+2026-Jan-12 06:20:41.580133
+#5 sha256:b65af0a51d863b994ae8e73f3b739ad2c14c4ab0f3b8807c7baf25404b897c06 75.95MB / 75.95MB 2.0s done
+2026-Jan-12 06:20:41.580133
+#5 extracting sha256:7962e2b983fd33a26ed1c6cd3dc8130d909d793c6a76893ed532f122edf72913 0.9s done
+2026-Jan-12 06:20:41.580133
+#5 DONE 2.6s
+2026-Jan-12 06:20:41.580133
+2026-Jan-12 06:20:41.580133
+#5 [stage-0 1/9] FROM ghcr.io/railwayapp/nixpacks:ubuntu-1745885067@sha256:d45c89d80e13d7ad0fd555b5130f22a866d9dd10e861f589932303ef2314c7de
+2026-Jan-12 06:20:41.580133
+#5 extracting sha256:b65af0a51d863b994ae8e73f3b739ad2c14c4ab0f3b8807c7baf25404b897c06
+2026-Jan-12 06:20:41.580133
+#5 extracting sha256:b65af0a51d863b994ae8e73f3b739ad2c14c4ab0f3b8807c7baf25404b897c06 0.7s done
+2026-Jan-12 06:20:41.580133
+#5 DONE 3.3s
+2026-Jan-12 06:20:41.580133
+2026-Jan-12 06:20:41.580133
+#5 [stage-0 1/9] FROM ghcr.io/railwayapp/nixpacks:ubuntu-1745885067@sha256:d45c89d80e13d7ad0fd555b5130f22a866d9dd10e861f589932303ef2314c7de
+2026-Jan-12 06:20:41.580133
+#5 extracting sha256:866b26ac4e4722aa6bd512e1e0c5fa91657dc060ef3eebbbcbd6057625e8f518 done
+2026-Jan-12 06:20:41.580133
+#5 DONE 3.3s
+2026-Jan-12 06:20:41.580133
+2026-Jan-12 06:20:41.580133
+#6 [stage-0 2/9] WORKDIR /app/
+2026-Jan-12 06:20:41.580133
+#6 DONE 0.7s
+2026-Jan-12 06:20:41.580133
+2026-Jan-12 06:20:41.580133
+#7 [stage-0 3/9] COPY .nixpacks/nixpkgs-23f9169c4ccce521379e602cc82ed873a1f1b52b.nix .nixpacks/nixpkgs-23f9169c4ccce521379e602cc82ed873a1f1b52b.nix
+2026-Jan-12 06:20:41.580133
+#7 DONE 0.0s
+2026-Jan-12 06:20:41.580133
+2026-Jan-12 06:20:41.580133
+#8 [stage-0 4/9] RUN nix-env -if .nixpacks/nixpkgs-23f9169c4ccce521379e602cc82ed873a1f1b52b.nix && nix-collect-garbage -d
+2026-Jan-12 06:20:41.580133
+#8 0.090 unpacking 'https://github.com/NixOS/nixpkgs/archive/23f9169c4ccce521379e602cc82ed873a1f1b52b.tar.gz' into the Git cache...
+2026-Jan-12 06:20:41.580133
+#8 25.64 unpacking 'https://github.com/railwayapp/nix-npm-overlay/archive/main.tar.gz' into the Git cache...
+2026-Jan-12 06:20:41.580133
+#8 26.05 installing '23f9169c4ccce521379e602cc82ed873a1f1b52b-env'
+2026-Jan-12 06:20:41.580133
+#8 26.76 error:
+2026-Jan-12 06:20:41.580133
+#8 26.76        … while calling the 'derivationStrict' builtin
+2026-Jan-12 06:20:41.580133
+#8 26.76          at <nix/derivation-internal.nix>:37:12:
+2026-Jan-12 06:20:41.580133
+#8 26.76            36|
+2026-Jan-12 06:20:41.580133
+#8 26.76            37|   strict = derivationStrict drvAttrs;
+2026-Jan-12 06:20:41.580133
+#8 26.76              |            ^
+2026-Jan-12 06:20:41.580133
+#8 26.76            38|
+2026-Jan-12 06:20:41.580133
+#8 26.76
+2026-Jan-12 06:20:41.580133
+#8 26.76        … while evaluating derivation '23f9169c4ccce521379e602cc82ed873a1f1b52b-env'
+2026-Jan-12 06:20:41.580133
+#8 26.76          whose name attribute is located at /nix/store/z6gs6c7h492l4zq99mrmbwfwkjykaf0d-source/pkgs/stdenv/generic/make-derivation.nix:544:13
+2026-Jan-12 06:20:41.580133
+#8 26.76
+2026-Jan-12 06:20:41.580133
+#8 26.76        … while evaluating attribute 'passAsFile' of derivation '23f9169c4ccce521379e602cc82ed873a1f1b52b-env'
+2026-Jan-12 06:20:41.580133
+#8 26.76          at /nix/store/z6gs6c7h492l4zq99mrmbwfwkjykaf0d-source/pkgs/build-support/trivial-builders/default.nix:81:9:
+2026-Jan-12 06:20:41.580133
+#8 26.76            80|         inherit buildCommand name;
+2026-Jan-12 06:20:41.580133
+#8 26.76            81|         passAsFile = [ "buildCommand" ] ++ (derivationArgs.passAsFile or [ ]);
+2026-Jan-12 06:20:41.580133
+#8 26.76              |         ^
+2026-Jan-12 06:20:41.580133
+#8 26.76            82|       }
+2026-Jan-12 06:20:41.580133
+#8 26.76
+2026-Jan-12 06:20:41.580133
+#8 26.76        (stack trace truncated; use '--show-trace' to show the full, detailed trace)
+2026-Jan-12 06:20:41.580133
+#8 26.76
+2026-Jan-12 06:20:41.580133
+#8 26.76        error: undefined variable 'jpeg'
+2026-Jan-12 06:20:41.580133
+#8 26.76        at /app/.nixpacks/nixpkgs-23f9169c4ccce521379e602cc82ed873a1f1b52b.nix:19:26:
+2026-Jan-12 06:20:41.580133
+#8 26.76            18|         '')
+2026-Jan-12 06:20:41.580133
+#8 26.76            19|         cairo gcc giflib jpeg libpng librsvg nodejs pango pkg-config python3
+2026-Jan-12 06:20:41.580133
+#8 26.76              |                          ^
+2026-Jan-12 06:20:41.580133
+#8 26.76            20|       ];
+2026-Jan-12 06:20:41.580133
+#8 ERROR: process "/bin/bash -ol pipefail -c nix-env -if .nixpacks/nixpkgs-23f9169c4ccce521379e602cc82ed873a1f1b52b.nix && nix-collect-garbage -d" did not complete successfully: exit code: 1
+2026-Jan-12 06:20:41.580133
+------
+2026-Jan-12 06:20:41.580133
+> [stage-0 4/9] RUN nix-env -if .nixpacks/nixpkgs-23f9169c4ccce521379e602cc82ed873a1f1b52b.nix && nix-collect-garbage -d:
+2026-Jan-12 06:20:41.580133
+26.76            82|       }
+2026-Jan-12 06:20:41.580133
+26.76
+2026-Jan-12 06:20:41.580133
+26.76        (stack trace truncated; use '--show-trace' to show the full, detailed trace)
+2026-Jan-12 06:20:41.580133
+26.76
+2026-Jan-12 06:20:41.580133
+26.76        error: undefined variable 'jpeg'
+2026-Jan-12 06:20:41.580133
+26.76        at /app/.nixpacks/nixpkgs-23f9169c4ccce521379e602cc82ed873a1f1b52b.nix:19:26:
+2026-Jan-12 06:20:41.580133
+26.76            18|         '')
+2026-Jan-12 06:20:41.580133
+26.76            19|         cairo gcc giflib jpeg libpng librsvg nodejs pango pkg-config python3
+2026-Jan-12 06:20:41.580133
+26.76              |                          ^
+2026-Jan-12 06:20:41.580133
+26.76            20|       ];
+2026-Jan-12 06:20:41.580133
+------
+2026-Jan-12 06:20:41.580133
+2026-Jan-12 06:20:41.580133
+1 warning found (use docker --debug to expand):
+2026-Jan-12 06:20:41.580133
+- UndefinedVar: Usage of undefined variable '$NIXPACKS_PATH' (line 18)
+2026-Jan-12 06:20:41.580133
+Dockerfile:8
+2026-Jan-12 06:20:41.580133
+--------------------
+2026-Jan-12 06:20:41.580133
+6 |
+2026-Jan-12 06:20:41.580133
+7 |     COPY .nixpacks/nixpkgs-23f9169c4ccce521379e602cc82ed873a1f1b52b.nix .nixpacks/nixpkgs-23f9169c4ccce521379e602cc82ed873a1f1b52b.nix
+2026-Jan-12 06:20:41.580133
+8 | >>> RUN nix-env -if .nixpacks/nixpkgs-23f9169c4ccce521379e602cc82ed873a1f1b52b.nix && nix-collect-garbage -d
+2026-Jan-12 06:20:41.580133
+9 |     RUN sudo apt-get update && sudo apt-get install -y --no-install-recommends curl wget
+2026-Jan-12 06:20:41.580133
+10 |
+2026-Jan-12 06:20:41.580133
+--------------------
+2026-Jan-12 06:20:41.580133
+ERROR: failed to build: failed to solve: process "/bin/bash -ol pipefail -c nix-env -if .nixpacks/nixpkgs-23f9169c4ccce521379e602cc82ed873a1f1b52b.nix && nix-collect-garbage -d" did not complete successfully: exit code: 1
+2026-Jan-12 06:20:41.580133
+exit status 1
+2026-Jan-12 06:20:41.626059
+========================================
+2026-Jan-12 06:20:41.630384
+Deployment failed. Removing the new version of your application.
