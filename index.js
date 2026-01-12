@@ -5,7 +5,7 @@ const { Client, Collection, GatewayIntentBits, REST, Routes } = require('discord
 const mysql = require('mysql2/promise');
 
 // --- CONFIGURATION KAWAII ---
-const BOT_COLOR = '#FFB6C1'; // Rose pastel pour les embeds
+const BOT_COLOR = '#FFB6C1'; // Rose pastel
 
 // 1. Client Discord
 const client = new Client({
@@ -13,23 +13,43 @@ const client = new Client({
         GatewayIntentBits.Guilds,
         GatewayIntentBits.GuildMessages,
         GatewayIntentBits.MessageContent,
-        GatewayIntentBits.GuildMembers, // Important pour l'Auto-Role et Bienvenue
+        GatewayIntentBits.GuildMembers,
         GatewayIntentBits.GuildPresences
     ]
 });
 
 client.commands = new Collection();
-client.color = BOT_COLOR; // On attache la couleur au client pour l'utiliser partout
+client.color = BOT_COLOR;
 
-// --- CHARGEMENT DES COMMANDES (Structure vide pour l'instant) ---
-// Nous créerons le dossier 'commands' à l'étape suivante
+// --- CHARGEMENT DES COMMANDES ---
+const commands = [];
+const foldersPath = path.join(__dirname, 'commands');
+// Vérifie si le dossier commands existe avant de lire
+if (fs.existsSync(foldersPath)) {
+    const commandFolders = fs.readdirSync(foldersPath);
+
+    for (const folder of commandFolders) {
+        const commandsPath = path.join(foldersPath, folder);
+        const commandFiles = fs.readdirSync(commandsPath).filter(file => file.endsWith('.js'));
+        
+        for (const file of commandFiles) {
+            const filePath = path.join(commandsPath, file);
+            const command = require(filePath);
+            if ('data' in command && 'execute' in command) {
+                client.commands.set(command.data.name, command);
+                commands.push(command.data.toJSON());
+                console.log(`🌸 Commande chargée : /${command.data.name}`);
+            }
+        }
+    }
+}
 
 // --- DÉMARRAGE DU SYSTÈME ---
 (async () => {
     try {
         console.log('🌸 Démarrage de ChyKlem BOT...');
 
-        // 1. Connexion Base de Données (Pool Robuste)
+        // 1. Connexion Base de Données
         client.db = mysql.createPool({
             uri: process.env.MYSQL_URL,
             waitForConnections: true,
@@ -41,9 +61,7 @@ client.color = BOT_COLOR; // On attache la couleur au client pour l'utiliser par
         await client.db.query('SELECT 1');
         console.log('💾 Base de données connectée !');
 
-        // 2. Création des Tables (Schéma V1)
-        
-        // Table XP
+        // 2. Création des Tables
         await client.db.execute(`
             CREATE TABLE IF NOT EXISTS levels (
                 user_id VARCHAR(255),
@@ -53,8 +71,6 @@ client.color = BOT_COLOR; // On attache la couleur au client pour l'utiliser par
                 PRIMARY KEY (user_id, guild_id)
             )
         `);
-
-        // Table Configuration (Avec Auto-Role !)
         await client.db.execute(`
             CREATE TABLE IF NOT EXISTS guild_settings (
                 guild_id VARCHAR(255) PRIMARY KEY,
@@ -66,16 +82,36 @@ client.color = BOT_COLOR; // On attache la couleur au client pour l'utiliser par
                 autorole_id VARCHAR(255) DEFAULT NULL
             )
         `);
-        console.log('📋 Tables SQL vérifiées (XP, Settings, AutoRole).');
+        console.log('📋 Tables SQL vérifiées.');
 
         // 3. Connexion Discord
         await client.login(process.env.DISCORD_TOKEN);
-        console.log(`✨ ${client.user.tag} est en ligne et prêt à être Kawaii !`);
 
-        // Ici, on lancera le Dashboard plus tard
-        // require('./website/server')(client);
+        // 4. Enregistrement des commandes Slash
+        const rest = new REST().setToken(process.env.DISCORD_TOKEN);
+        console.log('⏳ Enregistrement des commandes...');
+        await rest.put(
+            Routes.applicationCommands(client.user.id),
+            { body: commands },
+        );
+        console.log(`✨ ${client.user.tag} est en ligne et prêt à être Kawaii !`);
 
     } catch (error) {
         console.error('❌ Erreur au démarrage :', error);
     }
 })();
+
+// --- GESTION DES INTERACTIONS (Quand on tape une commande) ---
+client.on('interactionCreate', async interaction => {
+    if (!interaction.isChatInputCommand()) return;
+
+    const command = client.commands.get(interaction.commandName);
+    if (!command) return;
+
+    try {
+        await command.execute(interaction);
+    } catch (error) {
+        console.error(error);
+        await interaction.reply({ content: '❌ Oups, une erreur est survenue !', ephemeral: true });
+    }
+});
