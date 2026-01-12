@@ -1,0 +1,23 @@
+{
+  "name": "chyklem-bot",
+  "version": "1.0.0",
+  "description": "Bot Discord Communautaire pour ChyKlem Hub",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "discord.js": "^14.16.0",
+    "dotenv": "^16.4.5",
+    "mysql2": "^3.11.0",
+    "express": "^4.19.2",
+    "ejs": "^3.1.10",
+    "express-session": "^1.18.0",
+    "passport": "^0.7.0",
+    "passport-discord": "^0.1.4",
+    "canvas": "^2.11.2"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

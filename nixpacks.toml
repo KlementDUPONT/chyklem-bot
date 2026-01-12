@@ -1,0 +1,8 @@
+[phases.setup]
+nixPkgs = ["nodejs", "python3", "gcc", "pkg-config", "cairo", "pango", "libpng", "jpeg", "giflib", "librsvg"]
+
+[phases.install]
+cmds = ["npm install"]
+
+[start]
+cmd = "node index.js"
