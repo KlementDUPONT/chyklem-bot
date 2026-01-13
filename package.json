@@ -15,7 +15,8 @@
     "express-session": "^1.18.0",
     "passport": "^0.7.0",
     "passport-discord": "^0.1.4",
-    "canvas": "^2.11.2"
+    "canvas": "^2.11.2",
+    "express-mysql-session": "^3.0.0"
   },
   "engines": {
     "node": ">=18.0.0"
