@@ -88,6 +88,8 @@ if (fs.existsSync(eventsPath)) {
         await rest.put(Routes.applicationCommands(client.user.id), { body: commands });
         console.log(`✨ ${client.user.tag} est en ligne !`);
 
+        require('./website/server')(client);
+
     } catch (error) {
         console.error('❌ Erreur Critique au démarrage :', error);
     }
