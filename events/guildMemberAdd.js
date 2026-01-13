@@ -6,26 +6,50 @@ module.exports = {
     async execute(member) {
         const client = member.client;
         
-        // --- 1. RÉCUPÉRATION CONFIGURATION ---
-        // On récupère TOUT d'un coup (Channel Bienvenue + AutoRole)
+        // 1. RÉCUPÉRATION CONFIGURATION
         const [rows] = await client.db.query(
-            'SELECT welcome_channel_id, autorole_id FROM guild_settings WHERE guild_id = ?', 
+            'SELECT * FROM guild_settings WHERE guild_id = ?', 
             [member.guild.id]
         );
         
         if (rows.length === 0) return;
         const config = rows[0];
 
-        // --- 2. AUTO-ROLE ---
-        if (config.autorole_id) {
-            const role = member.guild.roles.cache.get(config.autorole_id);
-            if (role) {
-                // On essaie de donner le rôle. Si le bot n'a pas la perm, on évite le crash avec .catch
-                await member.roles.add(role).catch(err => console.error(`Impossible de donner le rôle à ${member.user.tag}:`, err.code));
+        // ====================================================
+        // 🛡️ SÉCURITÉ : ANTI-RAID
+        // ====================================================
+        if (config.antiraid_enabled) {
+            // Calcul de l'âge du compte en jours
+            const createdTimestamp = member.user.createdTimestamp;
+            const now = Date.now();
+            const ageInDays = (now - createdTimestamp) / (1000 * 60 * 60 * 24);
+
+            if (ageInDays < config.antiraid_account_age_days) {
+                // TROP JEUNE !
+                console.log(`🚨 Anti-Raid: ${member.user.tag} expulsé (Compte de ${Math.floor(ageInDays)} jours).`);
+                
+                // On essaie de prévenir l'utilisateur
+                await member.send(`🛑 **Sécurité** : Tu as été expulsé de **${member.guild.name}**.\n⚠️ Ton compte est trop récent (créé il y a moins de ${config.antiraid_account_age_days} jours). Reviens plus tard !`).catch(() => {});
+
+                // On expulse et ON ARRÊTE TOUT (pas de bienvenue)
+                await member.kick('Anti-Raid: Compte trop récent');
+                return; 
             }
         }
 
-        // --- 3. IMAGE DE BIENVENUE ---
+        // ====================================================
+        // 🤖 AUTO-ROLE
+        // ====================================================
+        if (config.autorole_id) {
+            const role = member.guild.roles.cache.get(config.autorole_id);
+            if (role) {
+                await member.roles.add(role).catch(err => console.error(`Erreur AutoRole pour ${member.user.tag}:`, err.code));
+            }
+        }
+
+        // ====================================================
+        // 🎨 IMAGE DE BIENVENUE
+        // ====================================================
         if (!config.welcome_channel_id) return;
         const channel = member.guild.channels.cache.get(config.welcome_channel_id);
         if (!channel) return;
