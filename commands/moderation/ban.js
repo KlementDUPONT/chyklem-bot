@@ -11,6 +11,7 @@ module.exports = {
         .addStringOption(option => 
             option.setName('raison')
                 .setDescription('La raison du bannissement'))
+        // CORRECTION ICI : Ajout du "s" à Permissions
         .setDefaultMemberPermissions(PermissionFlagsBits.BanMembers),
 
     async execute(interaction) {
@@ -25,7 +26,7 @@ module.exports = {
             return interaction.reply({ content: '❌ Je ne peux pas bannir ce membre (Rôle supérieur ou Admin).', ephemeral: true });
         }
 
-        // On essaie d'envoyer un MP à la personne avant de la bannir (c'est plus pro !)
+        // Envoi MP
         await target.send(`🛑 Tu as été banni de **${interaction.guild.name}**.\n📝 Raison : ${reason}`).catch(() => {});
 
         await target.ban({ reason: reason });
