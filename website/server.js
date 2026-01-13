@@ -8,7 +8,7 @@ module.exports = (client) => {
     const app = express();
     const port = 3000;
 
-    // --- 1. CONFIGURATION PASSPORT (CONNEXION DISCORD) ---
+    // --- CONFIGURATIONS ---
     passport.serializeUser((user, done) => done(null, user));
     passport.deserializeUser((obj, done) => done(null, obj));
 
@@ -16,18 +16,17 @@ module.exports = (client) => {
         clientID: client.user.id,
         clientSecret: process.env.DISCORD_CLIENT_SECRET,
         callbackURL: process.env.CALLBACK_URL,
-        scope: ['identify', 'guilds'] // On demande l'accès au profil et à la liste des serveurs
+        scope: ['identify', 'guilds']
     }, (accessToken, refreshToken, profile, done) => {
         process.nextTick(() => done(null, profile));
     }));
 
-    // --- 2. CONFIGURATION EXPRESS ---
     app.set('view engine', 'ejs');
     app.set('views', path.join(__dirname, 'views'));
     
-    // Fichiers statiques (CSS, images) si besoin plus tard
-    app.use(express.static(path.join(__dirname, 'public')));
-
+    // IMPORTANT : Permet de lire les données du formulaire POST
+    app.use(express.urlencoded({ extended: true }));
+    
     app.use(session({
         secret: 'kawaai-secret-key-change-me',
         resave: false,
@@ -36,73 +35,87 @@ module.exports = (client) => {
     app.use(passport.initialize());
     app.use(passport.session());
 
-    // --- 3. LES ROUTES (PAGES) ---
-    
-    // Page d'accueil
-    app.get('/', (req, res) => {
-        res.render('index', { 
-            user: req.user,
-            bot: client.user
-        });
-    });
+    // --- ROUTES ---
 
-    // Login (Redirection vers Discord)
+    // Login / Logout
+    app.get('/', (req, res) => res.render('index', { user: req.user, bot: client.user }));
     app.get('/login', passport.authenticate('discord'));
+    app.get('/auth/discord/callback', passport.authenticate('discord', { failureRedirect: '/' }), (req, res) => res.redirect('/dashboard'));
+    app.get('/logout', (req, res) => { req.logout(() => {}); res.redirect('/'); });
 
-    // Callback (Retour de Discord après connexion)
-    app.get('/auth/discord/callback', passport.authenticate('discord', {
-        failureRedirect: '/'
-    }), (req, res) => {
-        res.redirect('/dashboard');
-    });
-
-    // Logout
-    app.get('/logout', (req, res) => {
-        req.logout(() => {});
-        res.redirect('/');
-    });
-
-    // --- DASHBOARD : LISTE DES SERVEURS ---
+    // Dashboard : Liste des serveurs
     app.get('/dashboard', (req, res) => {
-        // 1. Si pas connecté, on dégage
         if (!req.user) return res.redirect('/login');
-
-        // 2. Filtrer : On ne garde que les serveurs où l'utilisateur est ADMIN
-        // (La permission 'Administrator' est le bit 0x8)
         const adminGuilds = req.user.guilds.filter(g => (g.permissions & 0x8) === 0x8);
-
-        // 3. Vérifier la présence du bot
-        // On regarde pour chaque serveur si l'ID existe dans le cache du bot
-        const finalGuilds = adminGuilds.map(guild => {
-            const botInGuild = client.guilds.cache.has(guild.id);
-            return { 
-                ...guild, 
-                botInGuild // true ou false
-            };
-        });
-
-        // 4. On envoie tout à la page dashboard.ejs
-        res.render('dashboard', { 
-            user: req.user,
-            bot: client.user,
-            guilds: finalGuilds
-        });
+        const finalGuilds = adminGuilds.map(guild => ({ ...guild, botInGuild: client.guilds.cache.has(guild.id) }));
+        res.render('dashboard', { user: req.user, bot: client.user, guilds: finalGuilds });
     });
 
-    // --- PAGE DE CONFIGURATION (Placeholder pour la suite) ---
-    app.get('/settings/:guildId', (req, res) => {
+    // --- PAGE DE RÉGLAGES (GET) ---
+    // Affiche le formulaire avec les données actuelles
+    app.get('/settings/:guildId', async (req, res) => {
         if (!req.user) return res.redirect('/login');
         const guildId = req.params.guildId;
-        
-        // Sécurité : Vérifier que le mec est bien admin de CE serveur
+
+        // 1. Sécurité : Est-il admin ?
         const isOwner = req.user.guilds.find(g => g.id === guildId && (g.permissions & 0x8) === 0x8);
         if (!isOwner) return res.redirect('/dashboard');
 
-        // Pour l'instant, on affiche juste un texte
-        res.send(`<h1>Configuration du serveur ${guildId}</h1><p>On va bientôt mettre les boutons ici !</p>`);
+        // 2. Récupérer le serveur Discord via le bot (pour avoir les salons/rôles)
+        const guild = client.guilds.cache.get(guildId);
+        if (!guild) return res.redirect('/dashboard'); // Le bot n'est plus dedans ?
+
+        // 3. Récupérer les réglages depuis la DB
+        const [rows] = await client.db.query('SELECT * FROM guild_settings WHERE guild_id = ?', [guildId]);
+        const settings = rows[0] || {};
+
+        // 4. Rendu de la page
+        res.render('settings', {
+            user: req.user,
+            guild: guild,
+            settings: settings,
+            channels: guild.channels.cache, // On passe la liste des salons
+            roles: guild.roles.cache,       // On passe la liste des rôles
+            success: req.query.success === 'true' // Pour afficher le message "Sauvegardé"
+        });
     });
 
-    // --- 4. LANCEMENT ---
+    // --- SAUVEGARDE DES RÉGLAGES (POST) ---
+    // Reçoit les données du formulaire
+    app.post('/settings/:guildId', async (req, res) => {
+        if (!req.user) return res.redirect('/login');
+        const guildId = req.params.guildId;
+
+        // Sécurité encore
+        const isOwner = req.user.guilds.find(g => g.id === guildId && (g.permissions & 0x8) === 0x8);
+        if (!isOwner) return res.status(403).send('Forbidden');
+
+        // Récupération des données du formulaire
+        // Note: Si une checkbox n'est pas cochée, elle n'est pas envoyée (donc undefined)
+        const welcomeChannel = req.body.welcome_channel_id || null;
+        const autoRole = req.body.autorole_id || null;
+        const antiRaidEnabled = req.body.antiraid_enabled === 'on'; // 'on' si coché
+        const antiRaidDays = parseInt(req.body.antiraid_days) || 7;
+
+        try {
+            await client.db.query(`
+                INSERT INTO guild_settings (guild_id, welcome_channel_id, autorole_id, antiraid_enabled, antiraid_account_age_days)
+                VALUES (?, ?, ?, ?, ?)
+                ON DUPLICATE KEY UPDATE 
+                welcome_channel_id = ?, autorole_id = ?, antiraid_enabled = ?, antiraid_account_age_days = ?
+            `, [
+                guildId, welcomeChannel, autoRole, antiRaidEnabled, antiRaidDays, // Valeurs INSERT
+                welcomeChannel, autoRole, antiRaidEnabled, antiRaidDays           // Valeurs UPDATE
+            ]);
+
+            // On recharge la page avec un message de succès
+            res.redirect(`/settings/${guildId}?success=true`);
+        } catch (error) {
+            console.error(error);
+            res.send("Erreur lors de la sauvegarde.");
+        }
+    });
+
     app.listen(port, () => {
         console.log(`🌍 Dashboard en ligne sur le port ${port}`);
     });
