@@ -93,23 +93,4 @@ if (fs.existsSync(eventsPath)) {
     } catch (error) {
         console.error('❌ Erreur Critique au démarrage :', error);
     }
-})();
-
-// --- 4. GESTION DES ERREURS D'INTERACTION ---
-client.on('interactionCreate', async interaction => {
-    if (!interaction.isChatInputCommand()) return;
-    const command = client.commands.get(interaction.commandName);
-    if (!command) return;
-
-    try {
-        await command.execute(interaction);
-    } catch (error) {
-        console.error('❌ Erreur Commande :', error);
-        // On essaie de répondre à l'utilisateur même si ça plante
-        if (interaction.replied || interaction.deferred) {
-            await interaction.followUp({ content: '❌ Une erreur est survenue en exécutant cette commande.', ephemeral: true }).catch(() => {});
-        } else {
-            await interaction.reply({ content: '❌ Une erreur est survenue.', ephemeral: true }).catch(() => {});
-        }
-    }
-});
+})();  
