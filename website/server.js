@@ -52,18 +52,17 @@ module.exports = (client) => {
     });
 
     // --- PAGE DE RÉGLAGES (GET) ---
-    // Affiche le formulaire avec les données actuelles
     app.get('/settings/:guildId', async (req, res) => {
         if (!req.user) return res.redirect('/login');
         const guildId = req.params.guildId;
 
-        // 1. Sécurité : Est-il admin ?
+        // 1. Sécurité
         const isOwner = req.user.guilds.find(g => g.id === guildId && (g.permissions & 0x8) === 0x8);
         if (!isOwner) return res.redirect('/dashboard');
 
-        // 2. Récupérer le serveur Discord via le bot (pour avoir les salons/rôles)
+        // 2. Récupérer le serveur
         const guild = client.guilds.cache.get(guildId);
-        if (!guild) return res.redirect('/dashboard'); // Le bot n'est plus dedans ?
+        if (!guild) return res.redirect('/dashboard');
 
         // 3. Récupérer les réglages depuis la DB
         const [rows] = await client.db.query('SELECT * FROM guild_settings WHERE guild_id = ?', [guildId]);
@@ -74,41 +73,38 @@ module.exports = (client) => {
             user: req.user,
             guild: guild,
             settings: settings,
-            channels: guild.channels.cache, // On passe la liste des salons
-            roles: guild.roles.cache,       // On passe la liste des rôles
-            success: req.query.success === 'true' // Pour afficher le message "Sauvegardé"
+            channels: guild.channels.cache,
+            roles: guild.roles.cache,
+            success: req.query.success === 'true'
         });
     });
 
     // --- SAUVEGARDE DES RÉGLAGES (POST) ---
-    // Reçoit les données du formulaire
     app.post('/settings/:guildId', async (req, res) => {
         if (!req.user) return res.redirect('/login');
         const guildId = req.params.guildId;
 
-        // Sécurité encore
         const isOwner = req.user.guilds.find(g => g.id === guildId && (g.permissions & 0x8) === 0x8);
         if (!isOwner) return res.status(403).send('Forbidden');
 
         // Récupération des données du formulaire
-        // Note: Si une checkbox n'est pas cochée, elle n'est pas envoyée (donc undefined)
         const welcomeChannel = req.body.welcome_channel_id || null;
+        const logChannel = req.body.log_channel_id || null; // <--- LE VOILA
         const autoRole = req.body.autorole_id || null;
-        const antiRaidEnabled = req.body.antiraid_enabled === 'on'; // 'on' si coché
+        const antiRaidEnabled = req.body.antiraid_enabled === 'on';
         const antiRaidDays = parseInt(req.body.antiraid_days) || 7;
 
         try {
             await client.db.query(`
-                INSERT INTO guild_settings (guild_id, welcome_channel_id, autorole_id, antiraid_enabled, antiraid_account_age_days)
-                VALUES (?, ?, ?, ?, ?)
+                INSERT INTO guild_settings (guild_id, welcome_channel_id, log_channel_id, autorole_id, antiraid_enabled, antiraid_account_age_days)
+                VALUES (?, ?, ?, ?, ?, ?)
                 ON DUPLICATE KEY UPDATE 
-                welcome_channel_id = ?, autorole_id = ?, antiraid_enabled = ?, antiraid_account_age_days = ?
+                welcome_channel_id = ?, log_channel_id = ?, autorole_id = ?, antiraid_enabled = ?, antiraid_account_age_days = ?
             `, [
-                guildId, welcomeChannel, autoRole, antiRaidEnabled, antiRaidDays, // Valeurs INSERT
-                welcomeChannel, autoRole, antiRaidEnabled, antiRaidDays           // Valeurs UPDATE
+                guildId, welcomeChannel, logChannel, autoRole, antiRaidEnabled, antiRaidDays, // Valeurs INSERT
+                welcomeChannel, logChannel, autoRole, antiRaidEnabled, antiRaidDays           // Valeurs UPDATE
             ]);
 
-            // On recharge la page avec un message de succès
             res.redirect(`/settings/${guildId}?success=true`);
         } catch (error) {
             console.error(error);

@@ -35,7 +35,7 @@
             <div class="row">
                 <div class="col-md-6">
                     <div class="card p-4">
-                        <h4 class="mb-4 text-primary"><i class="fas fa-door-open"></i> Bienvenue & Rôles</h4>
+                        <h4 class="mb-4 text-primary"><i class="fas fa-door-open"></i> Bienvenue & Logs</h4>
                         
                         <div class="mb-3">
                             <label class="form-label">Salon de Bienvenue (Image)</label>
@@ -49,7 +49,21 @@
                                     <% } %>
                                 <% }) %>
                             </select>
-                            <div class="form-text text-muted">Le bot enverra l'image Kawaii ici.</div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Salon de Logs (Modération)</label>
+                            <select name="log_channel_id" class="form-select">
+                                <option value="">-- Aucun --</option>
+                                <% channels.forEach(channel => { %>
+                                    <% if (channel.type === 0) { %>
+                                        <option value="<%= channel.id %>" <%= settings.log_channel_id === channel.id ? 'selected' : '' %>>
+                                            # <%= channel.name %>
+                                        </option>
+                                    <% } %>
+                                <% }) %>
+                            </select>
+                            <div class="form-text text-muted">Affiche les messages supprimés et modifiés.</div>
                         </div>
 
                         <div class="mb-3">
@@ -64,7 +78,6 @@
                                     <% } %>
                                 <% }) %>
                             </select>
-                            <div class="form-text text-muted">Donné automatiquement aux nouveaux arrivants.</div>
                         </div>
                     </div>
                 </div>
@@ -81,7 +94,6 @@
                         <div class="mb-3">
                             <label class="form-label">Âge minimum du compte (Jours)</label>
                             <input type="number" name="antiraid_days" class="form-control" value="<%= settings.antiraid_account_age_days || 7 %>" min="1" max="30">
-                            <div class="form-text text-muted">Les comptes créés il y a moins de X jours seront expulsés.</div>
                         </div>
                     </div>
                 </div>
