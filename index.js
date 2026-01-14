@@ -19,7 +19,7 @@ const client = new Client({
 client.commands = new Collection();
 client.color = BOT_COLOR;
 
-// --- 1. CHARGEMENT DES COMMANDES ---
+// --- CHARGEMENT ---
 const foldersPath = path.join(__dirname, 'commands');
 if (fs.existsSync(foldersPath)) {
     const commandFolders = fs.readdirSync(foldersPath);
@@ -30,15 +30,12 @@ if (fs.existsSync(foldersPath)) {
             for (const file of commandFiles) {
                 const filePath = path.join(commandsPath, file);
                 const command = require(filePath);
-                if ('data' in command && 'execute' in command) {
-                    client.commands.set(command.data.name, command);
-                }
+                if ('data' in command && 'execute' in command) client.commands.set(command.data.name, command);
             }
         }
     }
 }
 
-// --- 2. CHARGEMENT DES ÉVÉNEMENTS ---
 const eventsPath = path.join(__dirname, 'events');
 if (fs.existsSync(eventsPath)) {
     const eventFiles = fs.readdirSync(eventsPath).filter(file => file.endsWith('.js'));
@@ -50,101 +47,69 @@ if (fs.existsSync(eventsPath)) {
     }
 }
 
-// --- 3. DÉMARRAGE ET BASE DE DONNÉES ---
+// --- DÉMARRAGE ---
 (async () => {
     try {
-        // Connexion à la DB (MariaDB/MySQL)
         client.db = mysql.createPool({
             uri: process.env.MYSQL_URL,
-            waitForConnections: true,
-            connectionLimit: 5,
-            queueLimit: 0,
-            enableKeepAlive: true,
-            keepAliveInitialDelay: 0
+            waitForConnections: true, connectionLimit: 5, queueLimit: 0, enableKeepAlive: true, keepAliveInitialDelay: 0
         });
 
         await client.db.query('SELECT 1');
-        console.log('💾 Base de données connectée !');
+        console.log('💾 DB Connectée');
 
-        // Heartbeat Anti-Crash DB (évite la déconnexion après inactivité)
-        setInterval(async () => {
-            try { await client.db.query('SELECT 1'); } catch (err) { console.error('⚠️ Heartbeat DB retry...'); }
-        }, 60000);
+        setInterval(async () => { try { await client.db.query('SELECT 1'); } catch (err) {} }, 60000);
 
-        // --- CRÉATION / MISE À JOUR DES TABLES SQL ---
+        // --- TABLES SQL ---
         
-        // 1. Table des Niveaux (XP)
-        await client.db.execute(`
-            CREATE TABLE IF NOT EXISTS levels (
-                user_id VARCHAR(255), 
-                guild_id VARCHAR(255), 
-                xp INT DEFAULT 0, 
-                level INT DEFAULT 0, 
-                PRIMARY KEY (user_id, guild_id)
-            )
-        `);
-        
-        // 2. Table des Réglages (Settings) - VERSION COMPLETE
+        // 1. Levels & Rewards
+        await client.db.execute(`CREATE TABLE IF NOT EXISTS levels (user_id VARCHAR(255), guild_id VARCHAR(255), xp INT DEFAULT 0, level INT DEFAULT 0, PRIMARY KEY (user_id, guild_id))`);
+        await client.db.execute(`CREATE TABLE IF NOT EXISTS level_rewards (guild_id VARCHAR(255), level INT, role_id VARCHAR(255), PRIMARY KEY (guild_id, level))`);
+
+        // 2. Warns
+        await client.db.execute(`CREATE TABLE IF NOT EXISTS warnings (id INT AUTO_INCREMENT PRIMARY KEY, guild_id VARCHAR(255), user_id VARCHAR(255), moderator_id VARCHAR(255), reason TEXT, date TIMESTAMP DEFAULT CURRENT_TIMESTAMP)`);
+
+        // 3. Settings Complets
         await client.db.execute(`
             CREATE TABLE IF NOT EXISTS guild_settings (
                 guild_id VARCHAR(255) PRIMARY KEY, 
-                
-                -- SÉCURITÉ
                 antiraid_enabled BOOLEAN DEFAULT FALSE, 
                 antiraid_account_age_days INT DEFAULT 7, 
-                
-                -- MODÉRATION
                 log_channel_id VARCHAR(255), 
                 autorole_id VARCHAR(255) DEFAULT NULL,
-
-                -- BIENVENUE & DESIGN
                 welcome_channel_id VARCHAR(255), 
                 welcome_message VARCHAR(1000) DEFAULT "Bienvenue {user} ! 🌸", 
                 welcome_bg VARCHAR(500) DEFAULT 'https://i.imgur.com/vH1W4Qc.jpeg',
                 welcome_color VARCHAR(10) DEFAULT '#ffffff',
-
-                -- SYSTÈME DE NIVEAUX
                 levels_enabled BOOLEAN DEFAULT TRUE,
-                level_up_message VARCHAR(1000) DEFAULT "🎉 Bravo {user}, tu passes au Niveau {level} !"
+                level_up_message VARCHAR(1000) DEFAULT "🎉 Bravo {user}, tu passes au Niveau {level} !",
+                automod_enabled BOOLEAN DEFAULT FALSE,
+                automod_words TEXT DEFAULT NULL
             )
         `);
 
-        // --- MIGRATION AUTOMATIQUE ---
-        // Ajoute les colonnes manquantes si la table existait déjà (évite de devoir tout supprimer)
+        // Migrations
         const migrations = [
             "ALTER TABLE guild_settings ADD COLUMN welcome_bg VARCHAR(500) DEFAULT 'https://i.imgur.com/vH1W4Qc.jpeg'",
             "ALTER TABLE guild_settings ADD COLUMN welcome_color VARCHAR(10) DEFAULT '#ffffff'",
             "ALTER TABLE guild_settings ADD COLUMN levels_enabled BOOLEAN DEFAULT TRUE",
-            "ALTER TABLE guild_settings ADD COLUMN level_up_message VARCHAR(1000) DEFAULT '🎉 Bravo {user}, tu passes au Niveau {level} !'"
+            "ALTER TABLE guild_settings ADD COLUMN level_up_message VARCHAR(1000) DEFAULT '🎉 Bravo {user}, tu passes au Niveau {level} !'",
+            "ALTER TABLE guild_settings ADD COLUMN automod_enabled BOOLEAN DEFAULT FALSE",
+            "ALTER TABLE guild_settings ADD COLUMN automod_words TEXT DEFAULT NULL"
         ];
-        
-        for (const sql of migrations) {
-            try { await client.db.execute(sql); } catch(e) { /* Ignore l'erreur si la colonne existe déjà */ }
-        }
+        for (const sql of migrations) { try { await client.db.execute(sql); } catch(e) {} }
 
-        // --- CONNEXION DISCORD ---
         await client.login(process.env.DISCORD_TOKEN);
         
-        // Enregistrement des commandes Slash (/)
         const commandsData = [];
         client.commands.forEach(cmd => commandsData.push(cmd.data.toJSON()));
         const rest = new REST().setToken(process.env.DISCORD_TOKEN);
-        
-        console.log('⏳ Enregistrement des commandes slash...');
         await rest.put(Routes.applicationCommands(client.user.id), { body: commandsData });
         
-        console.log(`✨ ${client.user.tag} est en ligne !`);
-
-        // --- LANCEMENT DU DASHBOARD WEB ---
+        console.log(`✨ ${client.user.tag} Ready!`);
         require('./website/server')(client);
 
-    } catch (error) {
-        console.error('❌ Erreur Critique au démarrage :', error);
-    }
+    } catch (error) { console.error(error); }
 })();
 
-// Gestionnaire d'interactions simple pour éviter les crashs si le fichier events manque
-client.on('interactionCreate', async interaction => {
-    if (!interaction.isChatInputCommand()) return;
-    // Si l'event handler n'a pas pris le relais, on ignore ou on log
-});
+client.on('interactionCreate', async i => { /* Fallback */ });
