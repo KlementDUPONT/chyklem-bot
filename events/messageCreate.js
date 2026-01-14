@@ -1,65 +1,49 @@
 const { Events } = require('discord.js');
-
-// Anti-Spam : On garde en mémoire qui a parlé récemment
 const cooldowns = new Set(); 
 
 module.exports = {
     name: Events.MessageCreate,
     async execute(message) {
-        // 1. Ignorer les bots et les messages privés
         if (message.author.bot || !message.guild) return;
 
-        // 2. Anti-Spam (1 XP par minute max par personne)
-        const userId = message.author.id;
-        const guildId = message.guild.id;
-        const cooldownKey = `${guildId}-${userId}`;
-
-        if (cooldowns.has(cooldownKey)) return;
-
-        // 3. Calcul de l'XP (Entre 15 et 25)
-        const xpToAdd = Math.floor(Math.random() * 11) + 15;
-
-        // 4. Sauvegarde en Base de Données
         const client = message.client;
+        const guildId = message.guild.id;
+        const userId = message.author.id;
+
+        // 1. VÉRIFICATION : Est-ce que les niveaux sont activés ?
+        const [settings] = await client.db.query('SELECT levels_enabled, level_up_message FROM guild_settings WHERE guild_id = ?', [guildId]);
         
+        // Si pas de config ou module désactivé, on arrête tout
+        if (settings.length === 0 || !settings[0].levels_enabled) return;
+        const config = settings[0];
+
+        // 2. ANTI-SPAM
+        const key = `${guildId}-${userId}`;
+        if (cooldowns.has(key)) return;
+
+        // 3. LOGIQUE XP
+        const xpAdd = Math.floor(Math.random() * 11) + 15;
+
         try {
-            // On récupère l'XP actuel
             let [rows] = await client.db.query('SELECT * FROM levels WHERE user_id = ? AND guild_id = ?', [userId, guildId]);
-            
-            let xp = 0;
-            let level = 0;
+            let xp = rows.length ? rows[0].xp : 0;
+            let level = rows.length ? rows[0].level : 0;
 
-            if (rows.length > 0) {
-                xp = rows[0].xp;
-                level = rows[0].level;
-            }
-
-            // On ajoute le nouvel XP
-            xp += xpToAdd;
-
-            // Formule de niveau : Niveau = Racine carrée de (XP / 100)
-            // Exemple: 100xp = Niv 1, 400xp = Niv 2, 900xp = Niv 3
+            xp += xpAdd;
             const nextLevel = Math.floor(0.1 * Math.sqrt(xp));
 
-            // Si on monte de niveau !
             if (nextLevel > level) {
                 level = nextLevel;
-                message.channel.send(`🎉 Bravo ${message.author}, tu passes au **Niveau ${level}** ! 🌸`);
+                // Message personnalisé
+                let msg = config.level_up_message || "🎉 Bravo {user}, tu passes au Niveau {level} !";
+                msg = msg.replace('{user}', message.author).replace('{level}', level);
+                message.channel.send(msg);
             }
 
-            // Mise à jour DB (INSERT ou UPDATE)
-            await client.db.query(`
-                INSERT INTO levels (user_id, guild_id, xp, level) 
-                VALUES (?, ?, ?, ?) 
-                ON DUPLICATE KEY UPDATE xp = ?, level = ?
-            `, [userId, guildId, xp, level, xp, level]);
-
-            // Ajout du cooldown (60 secondes)
-            cooldowns.add(cooldownKey);
-            setTimeout(() => cooldowns.delete(cooldownKey), 60000);
-
-        } catch (error) {
-            console.error("❌ Erreur XP :", error);
-        }
+            await client.db.query(`INSERT INTO levels (user_id, guild_id, xp, level) VALUES (?,?,?,?) ON DUPLICATE KEY UPDATE xp=?, level=?`, [userId, guildId, xp, level, xp, level]);
+            
+            cooldowns.add(key);
+            setTimeout(() => cooldowns.delete(key), 60000);
+        } catch (e) { console.error(e); }
     },
 };
