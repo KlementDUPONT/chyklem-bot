@@ -1,4 +1,12 @@
-const { Events, ChannelType, PermissionFlagsBits, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+const { 
+    Events, 
+    ChannelType, 
+    PermissionFlagsBits, 
+    EmbedBuilder, 
+    ActionRowBuilder, 
+    ButtonBuilder, 
+    ButtonStyle 
+} = require('discord.js');
 
 module.exports = {
     name: Events.InteractionCreate,
@@ -25,48 +33,53 @@ module.exports = {
                     await interaction.reply({ content: '❌ Erreur lors de l\'exécution !', ephemeral: true });
                 }
             }
-            return; // On arrête là, pas besoin de vérifier les boutons
+            return; // On arrête là pour les commandes
         }
 
         // ====================================================
-        // 2. GESTION DES BOUTONS (Système de Tickets)
+        // 2. GESTION DES BOUTONS
         // ====================================================
         if (interaction.isButton()) {
             
-            // --- CAS A : OUVRIR UN TICKET ---
+            // --- A. SYSTÈME DE TICKETS ---
+            
+            // 1. Ouvrir un Ticket
             if (interaction.customId === 'create_ticket') {
                 await interaction.deferReply({ ephemeral: true });
 
-                // Vérifier si un ticket existe déjà (basé sur le nom du salon)
-                // Note : Pour être plus précis, on pourrait stocker ça en DB, mais ça suffit pour commencer.
-                const existingChannel = interaction.guild.channels.cache.find(c => c.name === `ticket-${interaction.user.username.toLowerCase().replace(/[^a-z0-9]/g, '')}`);
+                // Vérifier si un ticket existe déjà
+                // (On cherche un salon qui commence par "ticket-" et qui contient le pseudo)
+                // Note : Simplifié pour l'exemple. Idéalement, on stocke en DB.
+                const channelName = `ticket-${interaction.user.username.toLowerCase().replace(/[^a-z0-9]/g, '')}`;
+                const existingChannel = interaction.guild.channels.cache.find(c => c.name === channelName);
+                
                 if (existingChannel) {
                     return interaction.editReply(`❌ Tu as déjà un ticket ouvert ici : ${existingChannel}`);
                 }
 
-                // Création du salon
                 try {
+                    // Création du salon
                     const ticketChannel = await interaction.guild.channels.create({
-                        name: `ticket-${interaction.user.username}`,
+                        name: channelName,
                         type: ChannelType.GuildText,
                         permissionOverwrites: [
                             {
-                                id: interaction.guild.id, // @everyone : Interdit de voir
+                                id: interaction.guild.id, // @everyone ne voit rien
                                 deny: [PermissionFlagsBits.ViewChannel],
                             },
                             {
-                                id: interaction.user.id, // L'utilisateur : Autorisé
+                                id: interaction.user.id, // L'auteur voit tout
                                 allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.AttachFiles],
                             },
                             {
-                                id: interaction.client.user.id, // Le Bot : Autorisé
+                                id: interaction.client.user.id, // Le bot voit tout
                                 allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages],
                             },
-                            // Tu pourras ajouter ici le rôle "Modérateur" plus tard si besoin
+                            // Tu peux ajouter ici le rôle Modérateur si nécessaire
                         ],
                     });
 
-                    // Message de bienvenue dans le ticket
+                    // Message de bienvenue
                     const ticketEmbed = new EmbedBuilder()
                         .setColor('#5865F2')
                         .setTitle(`Ticket de ${interaction.user.username}`)
@@ -82,7 +95,11 @@ module.exports = {
                                 .setEmoji('🔒')
                         );
 
-                    await ticketChannel.send({ content: `${interaction.user}`, embeds: [ticketEmbed], components: [closeButton] });
+                    await ticketChannel.send({ 
+                        content: `${interaction.user}`, 
+                        embeds: [ticketEmbed], 
+                        components: [closeButton] 
+                    });
                     
                     return interaction.editReply(`✅ Ton ticket a été créé : ${ticketChannel}`);
 
@@ -92,10 +109,41 @@ module.exports = {
                 }
             }
 
-            // --- CAS B : FERMER UN TICKET ---
+            // 2. Fermer un Ticket
             if (interaction.customId === 'close_ticket') {
                 await interaction.reply('🔒 Le ticket va être supprimé dans 5 secondes...');
                 setTimeout(() => interaction.channel.delete().catch(() => {}), 5000);
+            }
+
+            // --- B. RÔLES BOUTONS (Reaction Roles) ---
+            
+            // Format du CustomID : "role_IDDUROLE"
+            if (interaction.customId.startsWith('role_')) {
+                const roleId = interaction.customId.split('_')[1];
+                const role = interaction.guild.roles.cache.get(roleId);
+
+                if (!role) {
+                    return interaction.reply({ content: '❌ Ce rôle semble avoir été supprimé.', ephemeral: true });
+                }
+
+                const member = interaction.member;
+
+                // Logique Toggle : Si on l'a, on l'enlève. Si on l'a pas, on le donne.
+                if (member.roles.cache.has(roleId)) {
+                    try {
+                        await member.roles.remove(role);
+                        return interaction.reply({ content: `➖ Rôle **${role.name}** retiré !`, ephemeral: true });
+                    } catch (err) {
+                        return interaction.reply({ content: '❌ Je n\'ai pas la permission de retirer ce rôle (il est peut-être au-dessus du mien).', ephemeral: true });
+                    }
+                } else {
+                    try {
+                        await member.roles.add(role);
+                        return interaction.reply({ content: `➕ Rôle **${role.name}** ajouté !`, ephemeral: true });
+                    } catch (err) {
+                        return interaction.reply({ content: '❌ Je n\'ai pas la permission de donner ce rôle (il est peut-être au-dessus du mien).', ephemeral: true });
+                    }
+                }
             }
         }
     },
