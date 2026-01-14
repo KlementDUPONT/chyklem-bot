@@ -69,7 +69,10 @@ if (fs.existsSync(eventsPath)) {
         // 2. Warns
         await client.db.execute(`CREATE TABLE IF NOT EXISTS warnings (id INT AUTO_INCREMENT PRIMARY KEY, guild_id VARCHAR(255), user_id VARCHAR(255), moderator_id VARCHAR(255), reason TEXT, date TIMESTAMP DEFAULT CURRENT_TIMESTAMP)`);
 
-        // 3. Settings Complets
+        // 3. Custom Commands (NOUVEAU)
+        await client.db.execute(`CREATE TABLE IF NOT EXISTS custom_commands (id INT AUTO_INCREMENT PRIMARY KEY, guild_id VARCHAR(255), trigger_word VARCHAR(255), response_text TEXT)`);
+
+        // 4. Settings Complets
         await client.db.execute(`
             CREATE TABLE IF NOT EXISTS guild_settings (
                 guild_id VARCHAR(255) PRIMARY KEY, 

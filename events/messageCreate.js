@@ -1,4 +1,4 @@
-const { Events, EmbedBuilder } = require('discord.js');
+const { Events } = require('discord.js');
 const cooldowns = new Set(); 
 
 module.exports = {
@@ -18,19 +18,27 @@ module.exports = {
             const badWords = config.automod_words.split(',').map(w => w.trim().toLowerCase());
             const content = message.content.toLowerCase();
             
-            // Si le message contient un mot interdit
             if (badWords.some(word => content.includes(word))) {
-                // On ne sanctionne pas les admins
                 if (!message.member.permissions.has('Administrator')) {
                     await message.delete().catch(()=>{});
                     const warningMsg = await message.channel.send(`⚠️ ${message.author}, surveille ton langage !`);
                     setTimeout(() => warningMsg.delete().catch(()=>{}), 5000);
-                    return; // On arrête là (pas d'XP pour les insulteurs)
+                    return; 
                 }
             }
         }
 
-        // --- 2. SYSTÈME XP ---
+        // --- 2. COMMANDES PERSONNALISÉES (CUSTOM COMMANDS) ---
+        // On vérifie si le message correspond exactement à un déclencheur
+        try {
+            const [customCmds] = await client.db.query('SELECT response_text FROM custom_commands WHERE guild_id = ? AND trigger_word = ?', [guildId, message.content]);
+            
+            if (customCmds.length > 0) {
+                return message.channel.send(customCmds[0].response_text);
+            }
+        } catch (e) { console.error(e); }
+
+        // --- 3. SYSTÈME XP ---
         if (!config.levels_enabled) return;
 
         const key = `${guildId}-${message.author.id}`;
@@ -46,22 +54,18 @@ module.exports = {
             xp += xpAdd;
             const nextLevel = Math.floor(0.1 * Math.sqrt(xp));
 
-            // LEVEL UP !
             if (nextLevel > level) {
                 level = nextLevel;
-                
-                // Message de Level Up
                 let msg = config.level_up_message || "🎉 Bravo {user}, tu passes au Niveau {level} !";
                 message.channel.send(msg.replace('{user}', message.author).replace('{level}', level));
 
-                // --- 3. RÉCOMPENSE DE RÔLE (AUTO ROLE) ---
+                // Récompense de Rôle
                 const [rewards] = await client.db.query('SELECT role_id FROM level_rewards WHERE guild_id = ? AND level = ?', [guildId, level]);
-                
                 if (rewards.length > 0) {
                     const roleId = rewards[0].role_id;
                     const role = message.guild.roles.cache.get(roleId);
                     if (role) {
-                        await message.member.roles.add(role).catch(e => console.error("Erreur ajout rôle récompense:", e));
+                        await message.member.roles.add(role).catch(e => console.error("Erreur role:", e));
                         message.channel.send(`🎁 Félicitations ! Tu as débloqué le rôle **${role.name}** !`);
                     }
                 }
