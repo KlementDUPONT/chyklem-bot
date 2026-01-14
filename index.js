@@ -4,7 +4,7 @@ const path = require('path');
 const { Client, Collection, GatewayIntentBits, REST, Routes } = require('discord.js');
 const mysql = require('mysql2/promise');
 
-const BOT_COLOR = '#FFB6C1'; // Rose pastel
+const BOT_COLOR = '#FFB6C1';
 
 const client = new Client({
     intents: [
@@ -20,7 +20,6 @@ client.commands = new Collection();
 client.color = BOT_COLOR;
 
 // --- 1. CHARGEMENT COMMANDES ---
-const commands = [];
 const foldersPath = path.join(__dirname, 'commands');
 if (fs.existsSync(foldersPath)) {
     const commandFolders = fs.readdirSync(foldersPath);
@@ -33,7 +32,6 @@ if (fs.existsSync(foldersPath)) {
                 const command = require(filePath);
                 if ('data' in command && 'execute' in command) {
                     client.commands.set(command.data.name, command);
-                    commands.push(command.data.toJSON());
                 }
             }
         }
@@ -52,10 +50,9 @@ if (fs.existsSync(eventsPath)) {
     }
 }
 
-// --- 3. DÉMARRAGE & HEARTBEAT ---
+// --- 3. DÉMARRAGE ET BASE DE DONNÉES ---
 (async () => {
     try {
-        // Connexion DB avec des réglages plus agressifs pour rester en vie
         client.db = mysql.createPool({
             uri: process.env.MYSQL_URL,
             waitForConnections: true,
@@ -68,29 +65,51 @@ if (fs.existsSync(eventsPath)) {
         await client.db.query('SELECT 1');
         console.log('💾 Base de données connectée !');
 
-        // ❤️ HEARTBEAT : On ping la DB toutes les 60 secondes pour éviter la déconnexion
+        // Heartbeat Anti-Crash DB
         setInterval(async () => {
-            try {
-                await client.db.query('SELECT 1');
-                // On garde le silence si ça marche pour ne pas polluer les logs
-            } catch (err) {
-                console.error('⚠️ Heartbeat DB échoué, tentative de reconnexion...');
-            }
+            try { await client.db.query('SELECT 1'); } catch (err) { console.error('⚠️ Heartbeat DB retry...'); }
         }, 60000);
 
-        // Tables
+        // --- CRÉATION / MISE À JOUR DES TABLES ---
+        
+        // Table XP
         await client.db.execute(`CREATE TABLE IF NOT EXISTS levels (user_id VARCHAR(255), guild_id VARCHAR(255), xp INT DEFAULT 0, level INT DEFAULT 0, PRIMARY KEY (user_id, guild_id))`);
-        await client.db.execute(`CREATE TABLE IF NOT EXISTS guild_settings (guild_id VARCHAR(255) PRIMARY KEY, antiraid_enabled BOOLEAN DEFAULT FALSE, antiraid_account_age_days INT DEFAULT 7, log_channel_id VARCHAR(255), welcome_channel_id VARCHAR(255), welcome_message VARCHAR(1000) DEFAULT "Bienvenue {user} ! 🌸", autorole_id VARCHAR(255) DEFAULT NULL)`);
+        
+        // Table Settings (Avec les nouvelles colonnes Design)
+        await client.db.execute(`
+            CREATE TABLE IF NOT EXISTS guild_settings (
+                guild_id VARCHAR(255) PRIMARY KEY, 
+                antiraid_enabled BOOLEAN DEFAULT FALSE, 
+                antiraid_account_age_days INT DEFAULT 7, 
+                log_channel_id VARCHAR(255), 
+                welcome_channel_id VARCHAR(255), 
+                welcome_message VARCHAR(1000) DEFAULT "Bienvenue {user} ! 🌸", 
+                welcome_bg VARCHAR(500) DEFAULT 'https://i.imgur.com/vH1W4Qc.jpeg',
+                welcome_color VARCHAR(10) DEFAULT '#ffffff',
+                autorole_id VARCHAR(255) DEFAULT NULL
+            )
+        `);
 
-        // Discord
+        // MIGRATION AUTOMATIQUE (Pour mettre à jour ta DB existante sans perte)
+        // Si ces colonnes existent déjà, l'erreur est ignorée par le catch
+        try { await client.db.execute("ALTER TABLE guild_settings ADD COLUMN welcome_bg VARCHAR(500) DEFAULT 'https://i.imgur.com/vH1W4Qc.jpeg'"); } catch(e){}
+        try { await client.db.execute("ALTER TABLE guild_settings ADD COLUMN welcome_color VARCHAR(10) DEFAULT '#ffffff'"); } catch(e){}
+
+        // Connexion Discord
         await client.login(process.env.DISCORD_TOKEN);
+        
+        // Enregistrement Commandes
+        const commandsData = [];
+        client.commands.forEach(cmd => commandsData.push(cmd.data.toJSON()));
         const rest = new REST().setToken(process.env.DISCORD_TOKEN);
-        await rest.put(Routes.applicationCommands(client.user.id), { body: commands });
+        await rest.put(Routes.applicationCommands(client.user.id), { body: commandsData });
+        
         console.log(`✨ ${client.user.tag} est en ligne !`);
 
+        // Lancement du site web
         require('./website/server')(client);
 
     } catch (error) {
         console.error('❌ Erreur Critique au démarrage :', error);
     }
-})();  
+})();

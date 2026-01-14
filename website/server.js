@@ -8,7 +8,7 @@ module.exports = (client) => {
     const app = express();
     const port = 3000;
 
-    // --- 1. CONFIGURATION PASSPORT (CONNEXION DISCORD) ---
+    // --- 1. CONFIGURATION PASSPORT ---
     passport.serializeUser((user, done) => done(null, user));
     passport.deserializeUser((obj, done) => done(null, obj));
 
@@ -24,11 +24,8 @@ module.exports = (client) => {
     // --- 2. CONFIGURATION EXPRESS ---
     app.set('view engine', 'ejs');
     app.set('views', path.join(__dirname, 'views'));
+    app.use(express.urlencoded({ extended: true })); // Important pour les formulaires
     
-    // IMPORTANT : Permet de lire les données envoyées par les formulaires (POST)
-    app.use(express.urlencoded({ extended: true }));
-    
-    // Configuration de la session (Mémoire)
     app.use(session({
         secret: 'kawaai-secret-key-change-me',
         resave: false,
@@ -38,71 +35,36 @@ module.exports = (client) => {
     app.use(passport.initialize());
     app.use(passport.session());
 
-    // --- 3. LES ROUTES (PAGES) ---
+    // --- 3. ROUTES ---
 
-    // Page d'accueil
-    app.get('/', (req, res) => {
-        res.render('index', { 
-            user: req.user,
-            bot: client.user
-        });
-    });
-
-    // Connexion (Redirection vers Discord)
+    // Accueil & Auth
+    app.get('/', (req, res) => res.render('index', { user: req.user, bot: client.user }));
     app.get('/login', passport.authenticate('discord'));
+    app.get('/auth/discord/callback', passport.authenticate('discord', { failureRedirect: '/' }), (req, res) => res.redirect('/dashboard'));
+    app.get('/logout', (req, res) => { req.logout(() => {}); res.redirect('/'); });
 
-    // Retour de Discord après connexion
-    app.get('/auth/discord/callback', passport.authenticate('discord', {
-        failureRedirect: '/'
-    }), (req, res) => {
-        res.redirect('/dashboard');
-    });
-
-    // Déconnexion
-    app.get('/logout', (req, res) => {
-        req.logout(() => {});
-        res.redirect('/');
-    });
-
-    // --- DASHBOARD : LISTE DES SERVEURS ---
+    // Dashboard (Liste Serveurs)
     app.get('/dashboard', (req, res) => {
-        // Si pas connecté, on redirige vers le login
         if (!req.user) return res.redirect('/login');
-
-        // 1. Filtrer : On garde uniquement les serveurs où l'utilisateur est ADMIN
-        // (La permission 'Administrator' correspond au bit 0x8)
         const adminGuilds = req.user.guilds.filter(g => (g.permissions & 0x8) === 0x8);
-
-        // 2. Vérifier si le bot est présent sur ces serveurs
-        const finalGuilds = adminGuilds.map(guild => {
-            const botInGuild = client.guilds.cache.has(guild.id);
-            return { 
-                ...guild, 
-                botInGuild // true si le bot est là, false sinon
-            };
-        });
-
-        res.render('dashboard', { 
-            user: req.user,
-            bot: client.user,
-            guilds: finalGuilds
-        });
+        const finalGuilds = adminGuilds.map(guild => ({ ...guild, botInGuild: client.guilds.cache.has(guild.id) }));
+        res.render('dashboard', { user: req.user, bot: client.user, guilds: finalGuilds });
     });
 
-    // --- PAGE DE RÉGLAGES (AFFICHAGE) ---
+    // Page de Configuration (GET)
     app.get('/settings/:guildId', async (req, res) => {
         if (!req.user) return res.redirect('/login');
         const guildId = req.params.guildId;
 
-        // Sécurité : Vérifier que l'utilisateur est bien admin de CE serveur
+        // Vérification Admin
         const isOwner = req.user.guilds.find(g => g.id === guildId && (g.permissions & 0x8) === 0x8);
         if (!isOwner) return res.redirect('/dashboard');
 
-        // Récupérer le serveur Discord via le bot (pour avoir la liste des salons/rôles)
+        // Vérification Bot présent
         const guild = client.guilds.cache.get(guildId);
         if (!guild) return res.redirect('/dashboard');
 
-        // Récupérer les réglages actuels depuis la Base de Données
+        // Récupération Données DB
         const [rows] = await client.db.query('SELECT * FROM guild_settings WHERE guild_id = ?', [guildId]);
         const settings = rows[0] || {};
 
@@ -110,52 +72,52 @@ module.exports = (client) => {
             user: req.user,
             guild: guild,
             settings: settings,
-            channels: guild.channels.cache, // Liste des salons pour le menu déroulant
-            roles: guild.roles.cache,       // Liste des rôles pour le menu déroulant
-            success: req.query.success === 'true' // Affiche le message vert si on vient de sauvegarder
+            channels: guild.channels.cache,
+            roles: guild.roles.cache,
+            success: req.query.success === 'true'
         });
     });
 
-    // --- SAUVEGARDE DES RÉGLAGES (POST) ---
+    // Sauvegarde Configuration (POST)
     app.post('/settings/:guildId', async (req, res) => {
         if (!req.user) return res.redirect('/login');
         const guildId = req.params.guildId;
 
-        // Sécurité encore
         const isOwner = req.user.guilds.find(g => g.id === guildId && (g.permissions & 0x8) === 0x8);
         if (!isOwner) return res.status(403).send('Forbidden');
 
-        // Récupération des données du formulaire
+        // Récupération Formulaire (Avec les nouveaux champs Design)
         const welcomeChannel = req.body.welcome_channel_id || null;
-        const logChannel = req.body.log_channel_id || null; // Gestion du salon de Logs
+        const welcomeBg = req.body.welcome_bg || 'https://i.imgur.com/vH1W4Qc.jpeg';
+        const welcomeColor = req.body.welcome_color || '#ffffff';
+        
+        const logChannel = req.body.log_channel_id || null;
         const autoRole = req.body.autorole_id || null;
-        const antiRaidEnabled = req.body.antiraid_enabled === 'on'; // 'on' si la case est cochée
+        const antiRaidEnabled = req.body.antiraid_enabled === 'on';
         const antiRaidDays = parseInt(req.body.antiraid_days) || 7;
 
         try {
-            // Requête SQL pour Insérer ou Mettre à jour (ON DUPLICATE KEY UPDATE)
             await client.db.query(`
                 INSERT INTO guild_settings 
-                (guild_id, welcome_channel_id, log_channel_id, autorole_id, antiraid_enabled, antiraid_account_age_days)
-                VALUES (?, ?, ?, ?, ?, ?)
+                (guild_id, welcome_channel_id, welcome_bg, welcome_color, log_channel_id, autorole_id, antiraid_enabled, antiraid_account_age_days)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                 ON DUPLICATE KEY UPDATE 
-                welcome_channel_id = ?, log_channel_id = ?, autorole_id = ?, antiraid_enabled = ?, antiraid_account_age_days = ?
+                welcome_channel_id = ?, welcome_bg = ?, welcome_color = ?, log_channel_id = ?, autorole_id = ?, antiraid_enabled = ?, antiraid_account_age_days = ?
             `, [
-                // Valeurs pour l'INSERT
-                guildId, welcomeChannel, logChannel, autoRole, antiRaidEnabled, antiRaidDays, 
-                // Valeurs pour l'UPDATE
-                welcomeChannel, logChannel, autoRole, antiRaidEnabled, antiRaidDays           
+                // INSERT VALUES
+                guildId, welcomeChannel, welcomeBg, welcomeColor, logChannel, autoRole, antiRaidEnabled, antiRaidDays, 
+                // UPDATE VALUES
+                welcomeChannel, welcomeBg, welcomeColor, logChannel, autoRole, antiRaidEnabled, antiRaidDays           
             ]);
 
-            // Recharger la page avec un message de succès
             res.redirect(`/settings/${guildId}?success=true`);
         } catch (error) {
-            console.error('Erreur sauvegarde dashboard:', error);
+            console.error('Erreur sauvegarde:', error);
             res.send("Erreur lors de la sauvegarde.");
         }
     });
 
-    // --- 4. LANCEMENT DU SERVEUR WEB ---
+    // Lancement
     app.listen(port, () => {
         console.log(`🌍 Dashboard en ligne sur le port ${port}`);
     });
