@@ -1,8 +1,8 @@
 require('dotenv').config();
 const fs = require('fs');
 const path = require('path');
-// Import des Partials : Crucial pour détecter les réactions sur les messages envoyés avant le démarrage du bot
-const { Client, Collection, GatewayIntentBits, REST, Routes, Partials, ActivityType } = require('discord.js');
+// Import des Partials : Crucial pour les Reaction Roles sur anciens messages
+const { Client, Collection, GatewayIntentBits, REST, Routes, Partials, ActivityType, ChannelType, PermissionFlagsBits } = require('discord.js');
 const mysql = require('mysql2/promise');
 
 // --- CONFIGURATION ---
@@ -12,13 +12,12 @@ const client = new Client({
     intents: [
         GatewayIntentBits.Guilds,
         GatewayIntentBits.GuildMessages,
-        GatewayIntentBits.MessageContent, // Pour lire les commandes
-        GatewayIntentBits.GuildMembers,   // Pour l'arrivée des membres (Bienvenue)
-        GatewayIntentBits.GuildPresences, // Pour voir les statuts
-        GatewayIntentBits.GuildVoiceStates, // Pour les vocaux temporaires
-        GatewayIntentBits.GuildMessageReactions // Pour les Rôles-Réactions
+        GatewayIntentBits.MessageContent, 
+        GatewayIntentBits.GuildMembers,   
+        GatewayIntentBits.GuildPresences, 
+        GatewayIntentBits.GuildVoiceStates, // Indispensable pour Vocaux Temp
+        GatewayIntentBits.GuildMessageReactions // Indispensable pour Reaction Roles
     ],
-    // Partials permet d'écouter des événements sur des données incomplètes (vieux messages)
     partials: [Partials.Message, Partials.Channel, Partials.Reaction]
 });
 
@@ -42,9 +41,7 @@ if (fs.existsSync(foldersPath)) {
                     if ('data' in command && 'execute' in command) {
                         client.commands.set(command.data.name, command);
                     }
-                } catch (err) {
-                    console.error(`[CMD] Erreur chargement ${file}:`, err);
-                }
+                } catch (err) { console.error(`[CMD] Erreur ${file}:`, err); }
             }
         }
     }
@@ -70,21 +67,19 @@ if (fs.existsSync(eventsPath)) {
         client.db = mysql.createPool({
             uri: process.env.MYSQL_URL,
             waitForConnections: true,
-            connectionLimit: 10, // Augmenté pour supporter le dashboard + bot
+            connectionLimit: 10,
             queueLimit: 0,
             enableKeepAlive: true,
             keepAliveInitialDelay: 0
         });
 
         await client.db.query('SELECT 1');
-        console.log('💾 Base de données connectée et prête.');
+        console.log('💾 Base de données connectée.');
 
-        // Heartbeat (Garde la connexion en vie)
+        // Heartbeat (Anti-Crash DB)
         setInterval(async () => { try { await client.db.query('SELECT 1'); } catch (err) {} }, 60000);
 
         // --- B. Infrastructure SQL (Tables) ---
-        // Note: VARCHAR(32) est utilisé pour les IDs Discord (optimisation)
-        
         const tables = [
             `CREATE TABLE IF NOT EXISTS levels (user_id VARCHAR(32), guild_id VARCHAR(32), xp INT DEFAULT 0, level INT DEFAULT 0, PRIMARY KEY (user_id, guild_id))`,
             `CREATE TABLE IF NOT EXISTS level_rewards (guild_id VARCHAR(32), level INT, role_id VARCHAR(32), PRIMARY KEY (guild_id, level))`,
@@ -95,17 +90,15 @@ if (fs.existsSync(eventsPath)) {
             `CREATE TABLE IF NOT EXISTS birthdays (user_id VARCHAR(32), guild_id VARCHAR(32), day INT, month INT, PRIMARY KEY (user_id, guild_id))`,
             `CREATE TABLE IF NOT EXISTS timers (id INT AUTO_INCREMENT PRIMARY KEY, guild_id VARCHAR(32), channel_id VARCHAR(32), message TEXT, interval_minutes INT, last_sent BIGINT DEFAULT 0)`,
             `CREATE TABLE IF NOT EXISTS reaction_roles (id INT AUTO_INCREMENT PRIMARY KEY, guild_id VARCHAR(32), channel_id VARCHAR(32), message_id VARCHAR(32), emoji VARCHAR(255), role_id VARCHAR(32))`,
-            // La table maîtresse des paramètres
-            `CREATE TABLE IF NOT EXISTS guild_settings (guild_id VARCHAR(32) PRIMARY KEY)` 
+            `CREATE TABLE IF NOT EXISTS guild_settings (guild_id VARCHAR(32) PRIMARY KEY)`
         ];
 
         for (const sql of tables) await client.db.execute(sql);
 
         // --- C. Auto-Réparation (Migrations) ---
-        // Cette boucle vérifie CHAQUE colonne nécessaire. Si elle manque, elle l'ajoute.
-        // C'est ce qui empêche les erreurs "Unknown column".
+        // Vérifie et ajoute TOUTES les colonnes nécessaires si elles manquent
         const requiredColumns = [
-            // Modules (Interrupteurs)
+            // Modules ON/OFF
             "ADD COLUMN module_welcome BOOLEAN DEFAULT TRUE",
             "ADD COLUMN module_levels BOOLEAN DEFAULT TRUE",
             "ADD COLUMN module_economy BOOLEAN DEFAULT TRUE",
@@ -117,37 +110,29 @@ if (fs.existsSync(eventsPath)) {
             "ADD COLUMN module_tempvoice BOOLEAN DEFAULT FALSE",
             "ADD COLUMN module_reactionroles BOOLEAN DEFAULT TRUE",
             
-            // Configuration Bienvenue
+            // Configs
             "ADD COLUMN welcome_channel_id VARCHAR(32) DEFAULT NULL",
             "ADD COLUMN welcome_message VARCHAR(1000) DEFAULT 'Bienvenue {user} ! 🌸'",
             "ADD COLUMN welcome_bg VARCHAR(500) DEFAULT 'https://i.imgur.com/vH1W4Qc.jpeg'",
             "ADD COLUMN welcome_color VARCHAR(10) DEFAULT '#ffffff'",
             "ADD COLUMN autorole_id VARCHAR(32) DEFAULT NULL",
-
-            // Configuration Niveaux
             "ADD COLUMN levels_enabled BOOLEAN DEFAULT TRUE",
             "ADD COLUMN level_up_message VARCHAR(1000) DEFAULT '🎉 Bravo {user}, tu passes au Niveau {level} !'",
-
-            // Configuration Modération & Sécurité
             "ADD COLUMN log_channel_id VARCHAR(32) DEFAULT NULL",
             "ADD COLUMN automod_enabled BOOLEAN DEFAULT FALSE",
             "ADD COLUMN automod_words TEXT DEFAULT NULL",
             "ADD COLUMN antiraid_enabled BOOLEAN DEFAULT FALSE",
             "ADD COLUMN antiraid_account_age_days INT DEFAULT 7",
-
-            // Configuration Social & TempVoice
             "ADD COLUMN birthday_channel_id VARCHAR(32) DEFAULT NULL",
             "ADD COLUMN tempvoice_channel_id VARCHAR(32) DEFAULT NULL",
             "ADD COLUMN tempvoice_category_id VARCHAR(32) DEFAULT NULL"
         ];
 
-        console.log("🔧 Vérification de l'intégrité de la base de données...");
+        console.log("🔧 Vérification de la structure DB...");
         for (const colSql of requiredColumns) {
             try {
                 await client.db.execute(`ALTER TABLE guild_settings ${colSql}`);
-                // Si ça réussit, c'est que la colonne manquait et a été ajoutée.
             } catch (e) {
-                // Erreur 1060 = Duplicate column name (Elle existe déjà), on ignore silencieusement.
                 if (e.errno !== 1060) console.warn(`[DB Warning] ${e.message}`);
             }
         }
@@ -156,40 +141,76 @@ if (fs.existsSync(eventsPath)) {
         // --- D. Connexion Discord ---
         await client.login(process.env.DISCORD_TOKEN);
         
-        // Enregistrement des commandes Slash
+        // Enregistrement Slash Commands
         const commandsData = [];
         client.commands.forEach(cmd => commandsData.push(cmd.data.toJSON()));
         const rest = new REST().setToken(process.env.DISCORD_TOKEN);
         await rest.put(Routes.applicationCommands(client.user.id), { body: commandsData });
         
-        // Status du bot
         client.user.setActivity('le Dashboard', { type: ActivityType.Watching });
-        console.log(`✨ ${client.user.tag} est en ligne et opérationnel !`);
+        console.log(`✨ ${client.user.tag} est en ligne !`);
 
-        // --- E. Lancement des Systèmes de fond ---
+        // --- E. Lancement Services & Web ---
         startBackgroundServices(client);
-
-        // --- F. Lancement du Site Web ---
         require('./website/server')(client);
 
     } catch (error) {
-        console.error('❌ ERREUR CRITIQUE AU DÉMARRAGE :', error);
+        console.error('❌ ERREUR CRITIQUE :', error);
     }
 })();
 
 // ============================================================
-// 3. SERVICES D'ARRIÈRE-PLAN (Timers, Annivs...)
+// 3. LOGIQUE VOCAUX TEMPORAIRES (Join to Create)
+// ============================================================
+client.on('voiceStateUpdate', async (oldState, newState) => {
+    try {
+        const guild = newState.guild || oldState.guild;
+        if (!guild) return;
+
+        // Récupérer la config du serveur
+        const [settings] = await client.db.query('SELECT module_tempvoice, tempvoice_channel_id, tempvoice_category_id FROM guild_settings WHERE guild_id = ?', [guild.id]);
+        if (!settings.length || !settings[0].module_tempvoice) return;
+        const conf = settings[0];
+
+        // 1. CRÉATION : Si l'utilisateur rejoint le salon "Créateur"
+        if (newState.channelId === conf.tempvoice_channel_id) {
+            const parent = conf.tempvoice_category_id;
+            const channel = await guild.channels.create({
+                name: `Salon de ${newState.member.user.username}`,
+                type: ChannelType.GuildVoice,
+                parent: parent,
+                permissionOverwrites: [
+                    { id: newState.member.id, allow: [PermissionFlagsBits.ManageChannels, PermissionFlagsBits.MoveMembers] }
+                ]
+            });
+            await newState.setChannel(channel);
+        }
+
+        // 2. SUPPRESSION : Si l'utilisateur quitte un salon vide (et que ce n'est pas le salon créateur)
+        if (oldState.channelId && oldState.channelId !== conf.tempvoice_channel_id) {
+            const channel = oldState.channel;
+            // Vérifier si le salon est dans la bonne catégorie (pour ne pas supprimer d'autres salons)
+            if (channel && channel.members.size === 0 && channel.parentId === conf.tempvoice_category_id) {
+                await channel.delete().catch(() => {});
+            }
+        }
+    } catch (e) {
+        console.error("Erreur TempVoice:", e);
+    }
+});
+
+// ============================================================
+// 4. SERVICES DE FOND (Timers & Annivs)
 // ============================================================
 function startBackgroundServices(client) {
     
-    // Service 1 : Timers (Messages automatiques)
+    // Service Timers
     setInterval(async () => {
         try {
             const [timers] = await client.db.query('SELECT * FROM timers');
             const now = Date.now();
             
             for (const timer of timers) {
-                // Vérifier si le module est activé pour ce serveur
                 const [s] = await client.db.query('SELECT module_timers FROM guild_settings WHERE guild_id = ?', [timer.guild_id]);
                 if (!s.length || !s[0].module_timers) continue;
 
@@ -198,24 +219,23 @@ function startBackgroundServices(client) {
                     if (guild) {
                         const channel = guild.channels.cache.get(timer.channel_id);
                         if (channel) {
-                            await channel.send(timer.message).catch(() => console.log(`Impossible d'envoyer timer dans ${timer.guild_id}`));
+                            await channel.send(timer.message).catch(() => {});
                             await client.db.query('UPDATE timers SET last_sent = ? WHERE id = ?', [now, timer.id]);
                         }
                     }
                 }
             }
-        } catch (e) { console.error("Erreur Service Timers:", e); }
-    }, 60000); // Check toutes les minutes
+        } catch (e) {}
+    }, 60000);
 
-    // Service 2 : Anniversaires (Check à 08h00)
+    // Service Anniversaires
     let lastCheckDate = "";
     setInterval(async () => {
         try {
             const now = new Date();
-            // Adapter l'heure ici si besoin (ex: now.getHours() === 8)
             if (now.getHours() === 8 && now.getMinutes() === 0) {
                 const todayStr = now.toDateString();
-                if (lastCheckDate === todayStr) return; // Déjà fait aujourd'hui
+                if (lastCheckDate === todayStr) return;
                 lastCheckDate = todayStr;
 
                 const currentDay = now.getDate();
@@ -230,31 +250,14 @@ function startBackgroundServices(client) {
                         const guild = client.guilds.cache.get(b.guild_id);
                         if (guild) {
                             const channel = guild.channels.cache.get(s[0].birthday_channel_id);
-                            if (channel) {
-                                channel.send(`🎉 **Joyeux Anniversaire** <@${b.user_id}> ! 🎂 Profite bien de ta journée !`);
-                            }
+                            if (channel) channel.send(`🎉 **Joyeux Anniversaire** <@${b.user_id}> ! 🎂`);
                         }
                     }
                 }
             }
-        } catch (e) { console.error("Erreur Service Anniversaires:", e); }
+        } catch (e) {}
     }, 60000);
 }
 
-// ============================================================
-// 4. GESTIONNAIRES D'ERREURS GLOBAUX
-// ============================================================
-// Empêche le bot de crash totalement sur une petite erreur
-process.on('unhandledRejection', error => {
-    console.error('Unhandled promise rejection:', error);
-});
-
-client.on('error', error => {
-    console.error('Discord Client Error:', error);
-});
-
-// Handler basique pour les interactions non gérées
-client.on('interactionCreate', async i => { 
-    if (!i.isChatInputCommand()) return; 
-    // La logique est gérée dans events/interactionCreate.js normalement
-});
+// Handler Interactions
+client.on('interactionCreate', async i => { if (!i.isChatInputCommand()) return; });
