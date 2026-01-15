@@ -6,6 +6,9 @@ const mysql = require('mysql2/promise');
 
 const BOT_COLOR = '#FFB6C1'; // Couleur par défaut des Embeds
 
+// Configuration du port pour le dashboard (utile pour Coolify/Heroku)
+const PORT = process.env.PORT || 3000;
+
 const client = new Client({
     intents: [
         GatewayIntentBits.Guilds,
@@ -36,7 +39,7 @@ if (fs.existsSync(foldersPath)) {
                 if ('data' in command && 'execute' in command) {
                     client.commands.set(command.data.name, command);
                 } else {
-                    console.warn(`[AVERTISSEMENT] La commande ${filePath} est invalide (manque data ou execute).`);
+                    console.warn(`[WARN] Commande ignorée (invalide) : ${filePath}`);
                 }
             }
         }
@@ -80,16 +83,18 @@ if (fs.existsSync(eventsPath)) {
 
         // Heartbeat Anti-Crash (Maintient la connexion active)
         setInterval(async () => { 
-            try { await client.db.query('SELECT 1'); } catch (err) { console.error('DB Heartbeat Failed'); } 
+            try { await client.db.query('SELECT 1'); } catch (err) { console.error('⚠️ DB Heartbeat Failed'); } 
         }, 60000);
 
         // --- B. Création des Tables SQL ---
-        
+        // NOTE: On utilise VARCHAR(32) pour les IDs Discord (Guild, User, Role, Channel)
+        // car un ID Discord fait ~19 caractères. VARCHAR(255) est trop lourd pour les clés primaires.
+
         // 1. Niveaux (XP)
         await client.db.execute(`
             CREATE TABLE IF NOT EXISTS levels (
-                user_id VARCHAR(255), 
-                guild_id VARCHAR(255), 
+                user_id VARCHAR(32), 
+                guild_id VARCHAR(32), 
                 xp INT DEFAULT 0, 
                 level INT DEFAULT 0, 
                 PRIMARY KEY (user_id, guild_id)
@@ -99,9 +104,9 @@ if (fs.existsSync(eventsPath)) {
         // 2. Récompenses de Niveaux (Rôles)
         await client.db.execute(`
             CREATE TABLE IF NOT EXISTS level_rewards (
-                guild_id VARCHAR(255), 
+                guild_id VARCHAR(32), 
                 level INT, 
-                role_id VARCHAR(255), 
+                role_id VARCHAR(32), 
                 PRIMARY KEY (guild_id, level)
             )
         `);
@@ -110,9 +115,9 @@ if (fs.existsSync(eventsPath)) {
         await client.db.execute(`
             CREATE TABLE IF NOT EXISTS warnings (
                 id INT AUTO_INCREMENT PRIMARY KEY, 
-                guild_id VARCHAR(255), 
-                user_id VARCHAR(255), 
-                moderator_id VARCHAR(255), 
+                guild_id VARCHAR(32), 
+                user_id VARCHAR(32), 
+                moderator_id VARCHAR(32), 
                 reason TEXT, 
                 date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
@@ -122,7 +127,7 @@ if (fs.existsSync(eventsPath)) {
         await client.db.execute(`
             CREATE TABLE IF NOT EXISTS custom_commands (
                 id INT AUTO_INCREMENT PRIMARY KEY, 
-                guild_id VARCHAR(255), 
+                guild_id VARCHAR(32), 
                 trigger_word VARCHAR(255), 
                 response_text TEXT
             )
@@ -131,8 +136,8 @@ if (fs.existsSync(eventsPath)) {
         // 5. Économie
         await client.db.execute(`
             CREATE TABLE IF NOT EXISTS economy (
-                user_id VARCHAR(255),
-                guild_id VARCHAR(255),
+                user_id VARCHAR(32),
+                guild_id VARCHAR(32),
                 money BIGINT DEFAULT 0,
                 last_daily BIGINT DEFAULT 0,
                 last_work BIGINT DEFAULT 0,
@@ -140,12 +145,13 @@ if (fs.existsSync(eventsPath)) {
             )
         `);
 
-        // 6. Compteur d'Actions (Câlins, Bisous...) - NOUVEAU
+        // 6. Compteur d'Actions (Câlins, Bisous...)
+        // C'est ici que ça plantait avant. Avec VARCHAR(32), c'est réparé.
         await client.db.execute(`
             CREATE TABLE IF NOT EXISTS action_counts (
-                guild_id VARCHAR(255),
-                user_from VARCHAR(255),
-                user_to VARCHAR(255),
+                guild_id VARCHAR(32),
+                user_from VARCHAR(32),
+                user_to VARCHAR(32),
                 action_type VARCHAR(50),
                 count INT DEFAULT 0,
                 PRIMARY KEY (guild_id, user_from, user_to, action_type)
@@ -155,23 +161,23 @@ if (fs.existsSync(eventsPath)) {
         // 7. Paramètres Serveur (Configuration Complète)
         await client.db.execute(`
             CREATE TABLE IF NOT EXISTS guild_settings (
-                guild_id VARCHAR(255) PRIMARY KEY, 
+                guild_id VARCHAR(32) PRIMARY KEY, 
                 
                 -- SÉCURITÉ
                 antiraid_enabled BOOLEAN DEFAULT FALSE, 
                 antiraid_account_age_days INT DEFAULT 7, 
                 
                 -- MODÉRATION
-                log_channel_id VARCHAR(255), 
+                log_channel_id VARCHAR(32), 
                 automod_enabled BOOLEAN DEFAULT FALSE,
                 automod_words TEXT DEFAULT NULL,
 
                 -- BIENVENUE & DESIGN
-                welcome_channel_id VARCHAR(255), 
+                welcome_channel_id VARCHAR(32), 
                 welcome_message VARCHAR(1000) DEFAULT "Bienvenue {user} ! 🌸", 
                 welcome_bg VARCHAR(500) DEFAULT 'https://i.imgur.com/vH1W4Qc.jpeg',
                 welcome_color VARCHAR(10) DEFAULT '#ffffff',
-                autorole_id VARCHAR(255) DEFAULT NULL,
+                autorole_id VARCHAR(32) DEFAULT NULL,
 
                 -- NIVEAUX
                 levels_enabled BOOLEAN DEFAULT TRUE,
@@ -211,6 +217,7 @@ if (fs.existsSync(eventsPath)) {
         console.log(`✨ ${client.user.tag} est en ligne !`);
 
         // --- E. Lancement du Site Web ---
+        // On passe le client et le port (optionnel selon ton fichier server.js)
         require('./website/server')(client);
 
     } catch (error) {
