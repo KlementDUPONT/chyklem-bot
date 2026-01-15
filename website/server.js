@@ -8,7 +8,7 @@ module.exports = (client) => {
     const app = express();
     const port = 3000;
 
-    // --- CONFIG PASSPORT ---
+    // --- CONFIGURATION PASSPORT ---
     passport.serializeUser((user, done) => done(null, user));
     passport.deserializeUser((obj, done) => done(null, obj));
 
@@ -21,12 +21,17 @@ module.exports = (client) => {
         process.nextTick(() => done(null, profile));
     }));
 
-    // --- CONFIG EXPRESS ---
+    // --- CONFIGURATION EXPRESS ---
     app.set('view engine', 'ejs');
     app.set('views', path.join(__dirname, 'views'));
     app.use(express.urlencoded({ extended: true }));
     
-    app.use(session({ secret: 'kawaai-secret', resave: false, saveUninitialized: false }));
+    app.use(session({
+        secret: 'kawaai-secret-super-secure',
+        resave: false,
+        saveUninitialized: false
+    }));
+    
     app.use(passport.initialize());
     app.use(passport.session());
 
@@ -36,7 +41,7 @@ module.exports = (client) => {
     app.get('/auth/discord/callback', passport.authenticate('discord', { failureRedirect: '/' }), (req, res) => res.redirect('/dashboard'));
     app.get('/logout', (req, res) => { req.logout(() => {}); res.redirect('/'); });
 
-    // --- DASHBOARD LISTE ---
+    // --- DASHBOARD (LISTE DES SERVEURS) ---
     app.get('/dashboard', (req, res) => {
         if (!req.user) return res.redirect('/login');
         const adminGuilds = req.user.guilds.filter(g => (g.permissions & 0x8) === 0x8);
@@ -44,23 +49,26 @@ module.exports = (client) => {
         res.render('dashboard', { user: req.user, bot: client.user, guilds: finalGuilds });
     });
 
-    // --- PAGE SETTINGS (GET) ---
+    // --- PAGE DE CONFIGURATION (GET) ---
     app.get('/settings/:guildId', async (req, res) => {
         if (!req.user) return res.redirect('/login');
         const guildId = req.params.guildId;
+        
+        // Vérif Admin
         const isOwner = req.user.guilds.find(g => g.id === guildId && (g.permissions & 0x8) === 0x8);
         if (!isOwner) return res.redirect('/dashboard');
 
+        // Vérif Bot présent
         const guild = client.guilds.cache.get(guildId);
         if (!guild) return res.redirect('/dashboard');
 
-        // Récupérer Settings
+        // Récupération des données DB
         const [settingsRows] = await client.db.query('SELECT * FROM guild_settings WHERE guild_id = ?', [guildId]);
-        
-        // NOUVEAU : Récupérer les Commandes Personnalisées
         const [customCommands] = await client.db.query('SELECT * FROM custom_commands WHERE guild_id = ?', [guildId]);
+        
+        // Récupération TOP Économie
+        const [economyTop] = await client.db.query('SELECT * FROM economy WHERE guild_id = ? ORDER BY money DESC LIMIT 5', [guildId]);
 
-        // Stats
         const stats = {
             memberCount: guild.memberCount,
             channelCount: guild.channels.cache.size,
@@ -72,7 +80,8 @@ module.exports = (client) => {
             user: req.user,
             guild: guild,
             settings: settingsRows[0] || {},
-            customCommands: customCommands, // On envoie la liste à la vue
+            customCommands: customCommands,
+            economyTop: economyTop, // Pour l'onglet économie
             channels: guild.channels.cache,
             roles: guild.roles.cache,
             stats: stats,
@@ -80,7 +89,7 @@ module.exports = (client) => {
         });
     });
 
-    // --- SAUVEGARDE GLOBALE (POST) ---
+    // --- SAUVEGARDE PARAMÈTRES GÉNÉRAUX (POST) ---
     app.post('/settings/:guildId', async (req, res) => {
         if (!req.user) return res.redirect('/login');
         const guildId = req.params.guildId;
@@ -97,17 +106,19 @@ module.exports = (client) => {
                 ON DUPLICATE KEY UPDATE 
                 welcome_channel_id=?, welcome_bg=?, welcome_color=?, log_channel_id=?, autorole_id=?, antiraid_enabled=?, antiraid_account_age_days=?, levels_enabled=?, level_up_message=?, automod_enabled=?, automod_words=?
             `, [
+                // INSERT
                 guildId, d.welcome_channel_id||null, d.welcome_bg||'', d.welcome_color||'#fff', d.log_channel_id||null, d.autorole_id||null, d.antiraid_enabled==='on', parseInt(d.antiraid_days)||7, d.levels_enabled==='on', d.level_up_message, d.automod_enabled==='on', d.automod_words,
+                // UPDATE
                 d.welcome_channel_id||null, d.welcome_bg||'', d.welcome_color||'#fff', d.log_channel_id||null, d.autorole_id||null, d.antiraid_enabled==='on', parseInt(d.antiraid_days)||7, d.levels_enabled==='on', d.level_up_message, d.automod_enabled==='on', d.automod_words
             ]);
             res.redirect(`/settings/${guildId}?success=true`);
         } catch (error) {
             console.error(error);
-            res.send("Erreur.");
+            res.send("Erreur de sauvegarde.");
         }
     });
 
-    // --- NOUVEAU : AJOUTER COMMANDE PERSO ---
+    // --- AJOUT COMMANDE PERSO ---
     app.post('/settings/:guildId/commands/add', async (req, res) => {
         if (!req.user) return res.redirect('/login');
         const guildId = req.params.guildId;
@@ -121,7 +132,7 @@ module.exports = (client) => {
         res.redirect(`/settings/${guildId}`);
     });
 
-    // --- NOUVEAU : SUPPRIMER COMMANDE PERSO ---
+    // --- SUPPRESSION COMMANDE PERSO ---
     app.post('/settings/:guildId/commands/delete', async (req, res) => {
         if (!req.user) return res.redirect('/login');
         const guildId = req.params.guildId;
@@ -135,5 +146,32 @@ module.exports = (client) => {
         res.redirect(`/settings/${guildId}`);
     });
 
-    app.listen(port, () => console.log(`🌍 Dashboard sur le port ${port}`));
+    // --- GESTION ÉCONOMIE (ADMIN) ---
+    app.post('/settings/:guildId/economy/update', async (req, res) => {
+        if (!req.user) return res.redirect('/login');
+        const guildId = req.params.guildId;
+        const isOwner = req.user.guilds.find(g => g.id === guildId && (g.permissions & 0x8) === 0x8);
+        if (!isOwner) return res.status(403).send('Forbidden');
+
+        const { user_id, amount, action } = req.body;
+        // action peut être 'add', 'remove', 'set'
+
+        if (user_id && amount) {
+            let sql = '';
+            if (action === 'add') sql = 'INSERT INTO economy (user_id, guild_id, money) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE money = money + ?';
+            if (action === 'remove') sql = 'UPDATE economy SET money = GREATEST(0, money - ?) WHERE user_id = ? AND guild_id = ?';
+            if (action === 'set') sql = 'INSERT INTO economy (user_id, guild_id, money) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE money = ?';
+
+            const val = parseInt(amount);
+            
+            if (action === 'add' || action === 'set') {
+                await client.db.query(sql, [user_id, guildId, val, val]);
+            } else {
+                await client.db.query(sql, [val, user_id, guildId]);
+            }
+        }
+        res.redirect(`/settings/${guildId}`);
+    });
+
+    app.listen(port, () => console.log(`🌍 Dashboard en ligne sur le port ${port}`));
 };

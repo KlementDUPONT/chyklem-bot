@@ -40,7 +40,7 @@
         .form-switch .form-check-input { height: 1.5em; width: 3em; cursor: pointer; }
         .form-switch .form-check-input:checked { background-color: #3ba55d; border-color: #3ba55d; }
 
-        /* Table Commandes */
+        /* Tables */
         .cmd-table { width: 100%; border-collapse: collapse; }
         .cmd-table th { text-align: left; padding: 10px; color: #8e9297; border-bottom: 1px solid #40444b; }
         .cmd-table td { padding: 15px 10px; border-bottom: 1px solid #2f3136; }
@@ -72,6 +72,7 @@
             <div class="nav-category">Général</div>
             <div class="nav-btn active" onclick="showTab('overview', this)"><i class="fas fa-chart-pie"></i> Vue d'ensemble</div>
             <div class="nav-btn" onclick="showTab('customcmds', this)"><i class="fas fa-terminal"></i> Commandes Perso</div>
+            <div class="nav-btn" onclick="showTab('economy', this)"><i class="fas fa-coins"></i> Économie</div>
             
             <div class="nav-category">Modules</div>
             <div class="nav-btn" onclick="showTab('welcome', this)"><i class="fas fa-door-open"></i> Bienvenue</div>
@@ -126,7 +127,6 @@
                                         <option value="<%= c.id %>" <%= settings.welcome_channel_id===c.id?'selected':'' %>>#<%= c.name %></option>
                                     <% }}) %>
                                 </select>
-
                                 <label class="form-label">Rôle Automatique</label>
                                 <select name="autorole_id" class="form-select mb-3">
                                     <option value="">🚫 Aucun</option>
@@ -200,35 +200,21 @@
                     <button type="submit" class="btn btn-success btn-sm fw-bold px-4">Enregistrer</button>
                 </div>
 
-            </form> <div id="customcmds" class="module-section">
+            </form>
+
+            <div id="customcmds" class="module-section">
                 <h2 class="mb-4">Commandes Personnalisées</h2>
-                
                 <div class="config-box">
                     <h5>✨ Créer une commande</h5>
                     <form action="/settings/<%= guild.id %>/commands/add" method="POST" class="row g-3 align-items-end mt-2">
-                        <div class="col-md-4">
-                            <label class="form-label">Déclencheur</label>
-                            <input type="text" name="trigger" class="form-control" placeholder="ex: !insta" required>
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label">Réponse du bot</label>
-                            <input type="text" name="response" class="form-control" placeholder="Abonnez-vous ici : ..." required>
-                        </div>
-                        <div class="col-md-2">
-                            <button type="submit" class="btn btn-primary w-100"><i class="fas fa-plus"></i> Ajouter</button>
-                        </div>
+                        <div class="col-md-4"><label class="form-label">Déclencheur</label><input type="text" name="trigger" class="form-control" placeholder="ex: !insta" required></div>
+                        <div class="col-md-6"><label class="form-label">Réponse</label><input type="text" name="response" class="form-control" placeholder="Abonnez-vous..." required></div>
+                        <div class="col-md-2"><button type="submit" class="btn btn-primary w-100"><i class="fas fa-plus"></i></button></div>
                     </form>
                 </div>
-
                 <div class="config-box p-0 overflow-hidden">
                     <table class="cmd-table">
-                        <thead>
-                            <tr>
-                                <th>Déclencheur</th>
-                                <th>Réponse</th>
-                                <th style="text-align: right;">Action</th>
-                            </tr>
-                        </thead>
+                        <thead><tr><th>Déclencheur</th><th>Réponse</th><th style="text-align: right;">Action</th></tr></thead>
                         <tbody>
                             <% if (customCommands.length > 0) { %>
                                 <% customCommands.forEach(cmd => { %>
@@ -244,12 +230,49 @@
                                     </tr>
                                 <% }) %>
                             <% } else { %>
-                                <tr>
-                                    <td colspan="3" class="text-center py-4 text-muted">Aucune commande personnalisée pour le moment.</td>
-                                </tr>
+                                <tr><td colspan="3" class="text-center py-4 text-muted">Aucune commande.</td></tr>
                             <% } %>
                         </tbody>
                     </table>
+                </div>
+            </div>
+
+            <div id="economy" class="module-section">
+                <h2 class="mb-4">Gestion Économie</h2>
+                
+                <div class="config-box">
+                    <h5>🏆 Top 5 Richesse</h5>
+                    <table class="cmd-table">
+                        <thead><tr><th>ID Utilisateur</th><th>Solde</th></tr></thead>
+                        <tbody>
+                            <% if (economyTop.length > 0) { %>
+                                <% economyTop.forEach(eco => { %>
+                                    <tr>
+                                        <td><span class="cmd-trigger"><%= eco.user_id %></span></td>
+                                        <td class="text-success fw-bold"><%= eco.money %> $</td>
+                                    </tr>
+                                <% }) %>
+                            <% } else { %>
+                                <tr><td colspan="2" class="text-muted text-center py-3">Personne n'a d'argent...</td></tr>
+                            <% } %>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="config-box">
+                    <h5>👮 Gestion Admin (Modifier Solde)</h5>
+                    <form action="/settings/<%= guild.id %>/economy/update" method="POST" class="row g-3 align-items-end mt-2">
+                        <div class="col-md-4"><label class="form-label">ID Utilisateur</label><input type="text" name="user_id" class="form-control" placeholder="123456789..." required></div>
+                        <div class="col-md-3"><label class="form-label">Action</label>
+                            <select name="action" class="form-select">
+                                <option value="add">➕ Ajouter</option>
+                                <option value="remove">➖ Retirer</option>
+                                <option value="set">✏️ Définir</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3"><label class="form-label">Montant</label><input type="number" name="amount" class="form-control" placeholder="1000" required></div>
+                        <div class="col-md-2"><button type="submit" class="btn btn-warning w-100"><i class="fas fa-check"></i></button></div>
+                    </form>
                 </div>
             </div>
 
@@ -276,7 +299,6 @@
         bgInput.addEventListener('input', updatePreview);
         colorInput.addEventListener('input', updatePreview);
 
-        // Barre de sauvegarde (Seulement pour le formulaire principal)
         const settingsForm = document.getElementById('settingsForm');
         const saveBar = document.getElementById('saveBar');
         settingsForm.addEventListener('change', () => saveBar.classList.add('show'));
