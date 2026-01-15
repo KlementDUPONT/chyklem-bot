@@ -96,9 +96,7 @@ if (fs.existsSync(eventsPath)) {
         for (const sql of tables) await client.db.execute(sql);
 
         // --- C. Auto-Réparation (Migrations) ---
-        // Vérifie et ajoute TOUTES les colonnes nécessaires si elles manquent
         const requiredColumns = [
-            // Modules ON/OFF
             "ADD COLUMN module_welcome BOOLEAN DEFAULT TRUE",
             "ADD COLUMN module_levels BOOLEAN DEFAULT TRUE",
             "ADD COLUMN module_economy BOOLEAN DEFAULT TRUE",
@@ -109,8 +107,6 @@ if (fs.existsSync(eventsPath)) {
             "ADD COLUMN module_timers BOOLEAN DEFAULT FALSE",
             "ADD COLUMN module_tempvoice BOOLEAN DEFAULT FALSE",
             "ADD COLUMN module_reactionroles BOOLEAN DEFAULT TRUE",
-            
-            // Configs
             "ADD COLUMN welcome_channel_id VARCHAR(32) DEFAULT NULL",
             "ADD COLUMN welcome_message VARCHAR(1000) DEFAULT 'Bienvenue {user} ! 🌸'",
             "ADD COLUMN welcome_bg VARCHAR(500) DEFAULT 'https://i.imgur.com/vH1W4Qc.jpeg'",
@@ -130,25 +126,17 @@ if (fs.existsSync(eventsPath)) {
 
         console.log("🔧 Vérification de la structure DB...");
         for (const colSql of requiredColumns) {
-            try {
-                await client.db.execute(`ALTER TABLE guild_settings ${colSql}`);
-            } catch (e) {
-                if (e.errno !== 1060) console.warn(`[DB Warning] ${e.message}`);
-            }
+            try { await client.db.execute(`ALTER TABLE guild_settings ${colSql}`); } 
+            catch (e) { if (e.errno !== 1060) console.warn(`[DB Warning] ${e.message}`); }
         }
         
-        // MIGRATION SPÉCIALE TIMERS (Ajout role_id si absent)
-        try { 
-            await client.db.execute("ALTER TABLE timers ADD COLUMN role_id VARCHAR(32) DEFAULT NULL"); 
-            console.log("✅ Colonne role_id ajoutée à timers.");
-        } catch (e) { if (e.errno !== 1060) console.warn(`[DB Timers] ${e.message}`); }
-
+        try { await client.db.execute("ALTER TABLE timers ADD COLUMN role_id VARCHAR(32) DEFAULT NULL"); } 
+        catch (e) { if (e.errno !== 1060) console.warn(`[DB Timers] ${e.message}`); }
+        
         console.log("✅ Structure DB validée.");
 
-        // --- D. Connexion Discord ---
         await client.login(process.env.DISCORD_TOKEN);
         
-        // Enregistrement Slash Commands
         const commandsData = [];
         client.commands.forEach(cmd => commandsData.push(cmd.data.toJSON()));
         const rest = new REST().setToken(process.env.DISCORD_TOKEN);
@@ -157,53 +145,45 @@ if (fs.existsSync(eventsPath)) {
         client.user.setActivity('le Dashboard', { type: ActivityType.Watching });
         console.log(`✨ ${client.user.tag} est en ligne !`);
 
-        // --- E. Lancement Services & Web ---
         startBackgroundServices(client);
         require('./website/server')(client);
 
-    } catch (error) {
-        console.error('❌ ERREUR CRITIQUE :', error);
-    }
+    } catch (error) { console.error('❌ ERREUR CRITIQUE :', error); }
 })();
 
 // ============================================================
-// 3. LOGIQUE VOCAUX TEMPORAIRES (Join to Create)
+// 3. LOGIQUE VOCAUX TEMPORAIRES (MODIFIÉ: DISPLAY NAME)
 // ============================================================
 client.on('voiceStateUpdate', async (oldState, newState) => {
     try {
         const guild = newState.guild || oldState.guild;
         if (!guild) return;
 
-        // Récupérer la config du serveur
         const [settings] = await client.db.query('SELECT module_tempvoice, tempvoice_channel_id, tempvoice_category_id FROM guild_settings WHERE guild_id = ?', [guild.id]);
         if (!settings.length || !settings[0].module_tempvoice) return;
         const conf = settings[0];
 
-        // 1. CRÉATION : Si l'utilisateur rejoint le salon "Créateur"
+        // 1. CRÉATION : Utilisation de displayName
         if (newState.channelId === conf.tempvoice_channel_id) {
             const parent = conf.tempvoice_category_id;
             const channel = await guild.channels.create({
-                name: `Salon de ${newState.member.user.username}`,
+                // ICI : On utilise displayName au lieu de username
+                name: `Salon de ${newState.member.displayName}`,
                 type: ChannelType.GuildVoice,
                 parent: parent,
-                permissionOverwrites: [
-                    { id: newState.member.id, allow: [PermissionFlagsBits.ManageChannels, PermissionFlagsBits.MoveMembers] }
-                ]
+                permissionOverwrites: [{ id: newState.member.id, allow: [PermissionFlagsBits.ManageChannels, PermissionFlagsBits.MoveMembers] }]
             });
             await newState.setChannel(channel);
         }
 
-        // 2. SUPPRESSION : Si l'utilisateur quitte un salon vide (et que ce n'est pas le salon créateur)
+        // 2. SUPPRESSION
         if (oldState.channelId && oldState.channelId !== conf.tempvoice_channel_id) {
             const channel = oldState.channel;
-            // Vérifier si le salon est dans la bonne catégorie (pour ne pas supprimer d'autres salons)
             if (channel && channel.members.size === 0 && channel.parentId === conf.tempvoice_category_id) {
                 await channel.delete().catch(() => {});
             }
         }
-    } catch (e) {
-        console.error("Erreur TempVoice:", e);
-    }
+    } catch (e) { console.error("Erreur TempVoice:", e); }
 });
 
 // ============================================================
@@ -226,7 +206,6 @@ function startBackgroundServices(client) {
                     if (guild) {
                         const channel = guild.channels.cache.get(timer.channel_id);
                         if (channel) {
-                            // Construction du message avec Ping Rôle
                             const rolePing = timer.role_id ? `<@&${timer.role_id}> ` : "";
                             const finalMessage = `${rolePing}${timer.message}`;
                             
@@ -270,5 +249,4 @@ function startBackgroundServices(client) {
     }, 60000);
 }
 
-// Handler Interactions
 client.on('interactionCreate', async i => { if (!i.isChatInputCommand()) return; });
