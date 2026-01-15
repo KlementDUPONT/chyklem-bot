@@ -1,7 +1,7 @@
 require('dotenv').config();
 const fs = require('fs');
 const path = require('path');
-// Import des Partials : Crucial pour les Reaction Roles sur anciens messages
+// Import des Partials : Crucial pour détecter les réactions sur les messages envoyés avant le démarrage du bot
 const { Client, Collection, GatewayIntentBits, REST, Routes, Partials, ActivityType, ChannelType, PermissionFlagsBits } = require('discord.js');
 const mysql = require('mysql2/promise');
 
@@ -88,7 +88,7 @@ if (fs.existsSync(eventsPath)) {
             `CREATE TABLE IF NOT EXISTS economy (user_id VARCHAR(32), guild_id VARCHAR(32), money BIGINT DEFAULT 0, last_daily BIGINT DEFAULT 0, last_work BIGINT DEFAULT 0, PRIMARY KEY (user_id, guild_id))`,
             `CREATE TABLE IF NOT EXISTS action_counts (guild_id VARCHAR(32), user_from VARCHAR(32), user_to VARCHAR(32), action_type VARCHAR(50), count INT DEFAULT 0, PRIMARY KEY (guild_id, user_from, user_to, action_type))`,
             `CREATE TABLE IF NOT EXISTS birthdays (user_id VARCHAR(32), guild_id VARCHAR(32), day INT, month INT, PRIMARY KEY (user_id, guild_id))`,
-            `CREATE TABLE IF NOT EXISTS timers (id INT AUTO_INCREMENT PRIMARY KEY, guild_id VARCHAR(32), channel_id VARCHAR(32), message TEXT, interval_minutes INT, last_sent BIGINT DEFAULT 0)`,
+            `CREATE TABLE IF NOT EXISTS timers (id INT AUTO_INCREMENT PRIMARY KEY, guild_id VARCHAR(32), channel_id VARCHAR(32), role_id VARCHAR(32), message TEXT, interval_minutes INT, last_sent BIGINT DEFAULT 0)`,
             `CREATE TABLE IF NOT EXISTS reaction_roles (id INT AUTO_INCREMENT PRIMARY KEY, guild_id VARCHAR(32), channel_id VARCHAR(32), message_id VARCHAR(32), emoji VARCHAR(255), role_id VARCHAR(32))`,
             `CREATE TABLE IF NOT EXISTS guild_settings (guild_id VARCHAR(32) PRIMARY KEY)`
         ];
@@ -136,6 +136,13 @@ if (fs.existsSync(eventsPath)) {
                 if (e.errno !== 1060) console.warn(`[DB Warning] ${e.message}`);
             }
         }
+        
+        // MIGRATION SPÉCIALE TIMERS (Ajout role_id si absent)
+        try { 
+            await client.db.execute("ALTER TABLE timers ADD COLUMN role_id VARCHAR(32) DEFAULT NULL"); 
+            console.log("✅ Colonne role_id ajoutée à timers.");
+        } catch (e) { if (e.errno !== 1060) console.warn(`[DB Timers] ${e.message}`); }
+
         console.log("✅ Structure DB validée.");
 
         // --- D. Connexion Discord ---
@@ -200,7 +207,7 @@ client.on('voiceStateUpdate', async (oldState, newState) => {
 });
 
 // ============================================================
-// 4. SERVICES DE FOND (Timers & Annivs)
+// 4. SERVICES DE FOND
 // ============================================================
 function startBackgroundServices(client) {
     
@@ -219,7 +226,11 @@ function startBackgroundServices(client) {
                     if (guild) {
                         const channel = guild.channels.cache.get(timer.channel_id);
                         if (channel) {
-                            await channel.send(timer.message).catch(() => {});
+                            // Construction du message avec Ping Rôle
+                            const rolePing = timer.role_id ? `<@&${timer.role_id}> ` : "";
+                            const finalMessage = `${rolePing}${timer.message}`;
+                            
+                            await channel.send(finalMessage).catch(() => {});
                             await client.db.query('UPDATE timers SET last_sent = ? WHERE id = ?', [now, timer.id]);
                         }
                     }

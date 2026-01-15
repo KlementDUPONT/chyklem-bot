@@ -110,10 +110,15 @@ module.exports = (client) => {
 
     // Timers
     app.post('/settings/:guildId/timers/add', async (req, res) => {
-        const { channel_id, interval, message } = req.body;
-        await client.db.query('INSERT INTO timers (guild_id, channel_id, message, interval_minutes) VALUES (?, ?, ?, ?)', [req.params.guildId, channel_id, message, interval]);
+        const { channel_id, interval, message, role_id } = req.body;
+        // Insertion avec role_id
+        await client.db.query(
+            'INSERT INTO timers (guild_id, channel_id, message, interval_minutes, role_id) VALUES (?, ?, ?, ?, ?)', 
+            [req.params.guildId, channel_id, message, interval, role_id || null]
+        );
         res.redirect(`/settings/${req.params.guildId}?tab=timers`);
     });
+    
     app.post('/settings/:guildId/timers/delete', async (req, res) => {
         await client.db.query('DELETE FROM timers WHERE id = ?', [req.body.id]);
         res.redirect(`/settings/${req.params.guildId}?tab=timers`);
@@ -149,7 +154,6 @@ module.exports = (client) => {
 
     // Eco
     app.post('/settings/:guildId/economy/update', async (req, res) => {
-        // ... (Logique éco inchangée) ...
         const { user_id, amount, action } = req.body;
         const val = parseInt(amount);
         let sql = '';
