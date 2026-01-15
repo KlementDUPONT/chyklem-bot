@@ -20,11 +20,23 @@ module.exports = {
         const sub = interaction.options.getSubcommand();
         const guildId = interaction.guild.id;
 
+        // Récupérer le membre ciblé ou soi-même
+        // .member donne accès au surnom spécifique au serveur
+        let targetMember = interaction.member; 
+        const targetUserOption = interaction.options.getUser('membre');
+        
+        if (targetUserOption) {
+            targetMember = await interaction.guild.members.fetch(targetUserOption.id).catch(() => null);
+        }
+
+        // Nom d'affichage à utiliser (Surnom serveur > Pseudo global > "Inconnu")
+        const displayName = targetMember ? targetMember.displayName : (targetUserOption ? targetUserOption.username : interaction.user.username);
+        const targetId = targetMember ? targetMember.id : (targetUserOption ? targetUserOption.id : interaction.user.id);
+
         if (sub === 'set') {
             const day = interaction.options.getInteger('jour');
             const month = interaction.options.getInteger('mois');
 
-            // Validation de date basique
             if ((month === 2 && day > 29) || ([4, 6, 9, 11].includes(month) && day > 30)) {
                 return interaction.reply({ content: '❌ Cette date n\'existe pas !', ephemeral: true });
             }
@@ -36,7 +48,7 @@ module.exports = {
                     ON DUPLICATE KEY UPDATE day = ?, month = ?
                 `, [interaction.user.id, guildId, day, month, day, month]);
 
-                interaction.reply(`✅ C'est noté ! Je te souhaiterai ton anniversaire le **${day}/${month}** ! 🎂`);
+                interaction.reply(`✅ C'est noté ! Je souhaiterai l'anniversaire de **${displayName}** le **${day}/${month}** ! 🎂`);
             } catch (e) {
                 console.error(e);
                 interaction.reply({ content: '❌ Erreur base de données.', ephemeral: true });
@@ -44,23 +56,17 @@ module.exports = {
         }
 
         if (sub === 'check') {
-            // On récupère le membre complet pour avoir le displayName
-            const user = interaction.options.getUser('membre') || interaction.user;
-            const target = interaction.guild.members.cache.get(user.id) || user;
-            
             const [rows] = await interaction.client.db.query(
                 'SELECT day, month FROM birthdays WHERE user_id = ? AND guild_id = ?', 
-                [user.id, guildId]
+                [targetId, guildId]
             );
 
             if (rows.length === 0) {
-                // Utilisation de displayName
-                return interaction.reply(`${target.displayName} n'a pas encore configuré son anniversaire.`);
+                return interaction.reply(`${displayName} n'a pas encore configuré son anniversaire.`);
             }
 
             const { day, month } = rows[0];
-            // Utilisation de displayName
-            interaction.reply(`🎂 L'anniversaire de **${target.displayName}** est le **${day}/${month}** !`);
+            interaction.reply(`🎂 L'anniversaire de **${displayName}** est le **${day}/${month}** !`);
         }
     }
 };

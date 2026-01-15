@@ -36,42 +36,56 @@ module.exports = (client) => {
         res.render('dashboard', { user: req.user, bot: client.user, guilds: finalGuilds });
     });
 
-    // --- FONCTION MAGIQUE : RÉCUPÉRER LES VRAIS NOMS ---
+    // --- FONCTION ENRICHISSEMENT (RECUPERE LES PSEUDOS) ---
     async function enrichData(guild, data, idField) {
         return await Promise.all(data.map(async (item) => {
             try {
-                // On essaie de récupérer le membre dans le cache ou via l'API
-                const member = await guild.members.fetch(item[idField]).catch(() => null);
-                return {
-                    ...item,
-                    displayName: member ? member.displayName : 'Ancien Membre', // Le Surnom
-                    avatar: member ? member.user.displayAvatarURL({ size: 64 }) : 'https://cdn.discordapp.com/embed/avatars/0.png'
-                };
+                const userId = item[idField];
+                if (!userId) return { ...item, displayName: 'Inconnu', avatar: 'https://cdn.discordapp.com/embed/avatars/0.png' };
+
+                // On cherche le membre sur le serveur pour avoir son surnom
+                const member = await guild.members.fetch(userId).catch(() => null);
+                
+                if (member) {
+                    return {
+                        ...item,
+                        displayName: member.displayName, // Surnom serveur
+                        avatar: member.displayAvatarURL({ dynamic: true, size: 64 })
+                    };
+                } else {
+                    // S'il est parti, on tente l'API user
+                    const user = await client.users.fetch(userId).catch(() => null);
+                    return {
+                        ...item,
+                        displayName: user ? user.username : 'Ancien Membre',
+                        avatar: user ? user.displayAvatarURL({ dynamic: true, size: 64 }) : 'https://cdn.discordapp.com/embed/avatars/0.png'
+                    };
+                }
             } catch (e) {
-                return { ...item, displayName: item[idField], avatar: 'https://cdn.discordapp.com/embed/avatars/0.png' };
+                return { ...item, displayName: 'Erreur', avatar: 'https://cdn.discordapp.com/embed/avatars/0.png' };
             }
         }));
     }
 
-    // PAGE SETTINGS
+    // --- PAGE SETTINGS ---
     app.get('/settings/:guildId', async (req, res) => {
         if (!req.user) return res.redirect('/login');
         const guildId = req.params.guildId;
         const guild = client.guilds.cache.get(guildId);
         if (!guild) return res.redirect('/dashboard');
 
+        // Récupération DB
         const [settings] = await client.db.query('SELECT * FROM guild_settings WHERE guild_id = ?', [guildId]);
         const [customCommands] = await client.db.query('SELECT * FROM custom_commands WHERE guild_id = ?', [guildId]);
         const [timers] = await client.db.query('SELECT * FROM timers WHERE guild_id = ?', [guildId]);
         const [reactionRoles] = await client.db.query('SELECT * FROM reaction_roles WHERE guild_id = ?', [guildId]);
 
-        // Données à enrichir avec les pseudos
+        // Données avec pseudos
         const [economyRaw] = await client.db.query('SELECT * FROM economy WHERE guild_id = ? ORDER BY money DESC LIMIT 5', [guildId]);
         const economyTop = await enrichData(guild, economyRaw, 'user_id');
 
         const [warningsRaw] = await client.db.query('SELECT * FROM warnings WHERE guild_id = ? ORDER BY date DESC LIMIT 10', [guildId]);
-        const warnings = await enrichData(guild, warningsRaw, 'user_id'); // On enrichit aussi le coupable
-        // (Optionnel: on pourrait aussi enrichir le moderator_id)
+        const warnings = await enrichData(guild, warningsRaw, 'user_id');
 
         res.render('settings', {
             user: req.user, guild, 
@@ -83,7 +97,7 @@ module.exports = (client) => {
         });
     });
 
-    // SAUVEGARDE ET ACTIONS (Code identique mais robuste)
+    // --- ACTIONS POST ---
     app.post('/settings/:guildId', async (req, res) => {
         if (!req.user) return res.redirect('/login');
         const d = req.body;
@@ -107,7 +121,7 @@ module.exports = (client) => {
         } catch (error) { res.send("Erreur SQL: " + error.message); }
     });
 
-    // Routes spécifiques (Timers, RR, Eco...) - Identiques à avant
+    // Routes Ajout/Suppression (Timer, RR, Cmds, Eco...)
     app.post('/settings/:guildId/timers/add', async (req, res) => {
         await client.db.query('INSERT INTO timers (guild_id, channel_id, message, interval_minutes, role_id) VALUES (?, ?, ?, ?, ?)', [req.params.guildId, req.body.channel_id, req.body.message, req.body.interval, req.body.role_id || null]);
         res.redirect(`/settings/${req.params.guildId}?tab=timers`);
