@@ -4,7 +4,7 @@ const path = require('path');
 const { Client, Collection, GatewayIntentBits, REST, Routes } = require('discord.js');
 const mysql = require('mysql2/promise');
 
-const BOT_COLOR = '#FFB6C1'; // La couleur par défaut de tes embeds
+const BOT_COLOR = '#FFB6C1'; // Couleur par défaut des Embeds
 
 const client = new Client({
     intents: [
@@ -13,7 +13,7 @@ const client = new Client({
         GatewayIntentBits.MessageContent,
         GatewayIntentBits.GuildMembers,
         GatewayIntentBits.GuildPresences,
-        GatewayIntentBits.GuildVoiceStates // Indispensable pour les logs vocaux
+        GatewayIntentBits.GuildVoiceStates // Important pour les logs vocaux
     ]
 });
 
@@ -21,7 +21,7 @@ client.commands = new Collection();
 client.color = BOT_COLOR;
 
 // ============================================================
-// 1. CHARGEMENT DES COMMANDES (Recursif ou Dossiers)
+// 1. CHARGEMENT DES COMMANDES
 // ============================================================
 const foldersPath = path.join(__dirname, 'commands');
 if (fs.existsSync(foldersPath)) {
@@ -36,7 +36,7 @@ if (fs.existsSync(foldersPath)) {
                 if ('data' in command && 'execute' in command) {
                     client.commands.set(command.data.name, command);
                 } else {
-                    console.log(`[AVERTISSEMENT] La commande à ${filePath} manque de "data" ou "execute".`);
+                    console.warn(`[AVERTISSEMENT] La commande ${filePath} est invalide (manque data ou execute).`);
                 }
             }
         }
@@ -65,7 +65,7 @@ if (fs.existsSync(eventsPath)) {
 // ============================================================
 (async () => {
     try {
-        // --- A. Connexion à la Base de Données ---
+        // --- A. Connexion Base de Données ---
         client.db = mysql.createPool({
             uri: process.env.MYSQL_URL,
             waitForConnections: true,
@@ -76,16 +76,16 @@ if (fs.existsSync(eventsPath)) {
         });
 
         await client.db.query('SELECT 1');
-        console.log('💾 Base de données connectée avec succès !');
+        console.log('💾 Base de données connectée !');
 
-        // Heartbeat Anti-Crash (Garde la connexion active)
+        // Heartbeat Anti-Crash (Maintient la connexion active)
         setInterval(async () => { 
             try { await client.db.query('SELECT 1'); } catch (err) { console.error('DB Heartbeat Failed'); } 
         }, 60000);
 
-        // --- B. Création des Tables SQL (Infrastructure) ---
+        // --- B. Création des Tables SQL ---
         
-        // 1. Table : Niveaux (XP)
+        // 1. Niveaux (XP)
         await client.db.execute(`
             CREATE TABLE IF NOT EXISTS levels (
                 user_id VARCHAR(255), 
@@ -96,7 +96,7 @@ if (fs.existsSync(eventsPath)) {
             )
         `);
 
-        // 2. Table : Récompenses de Niveaux (Roles)
+        // 2. Récompenses de Niveaux (Rôles)
         await client.db.execute(`
             CREATE TABLE IF NOT EXISTS level_rewards (
                 guild_id VARCHAR(255), 
@@ -106,7 +106,7 @@ if (fs.existsSync(eventsPath)) {
             )
         `);
 
-        // 3. Table : Avertissements (Warns)
+        // 3. Avertissements (Warns)
         await client.db.execute(`
             CREATE TABLE IF NOT EXISTS warnings (
                 id INT AUTO_INCREMENT PRIMARY KEY, 
@@ -118,7 +118,7 @@ if (fs.existsSync(eventsPath)) {
             )
         `);
 
-        // 4. Table : Commandes Personnalisées
+        // 4. Commandes Personnalisées
         await client.db.execute(`
             CREATE TABLE IF NOT EXISTS custom_commands (
                 id INT AUTO_INCREMENT PRIMARY KEY, 
@@ -128,7 +128,7 @@ if (fs.existsSync(eventsPath)) {
             )
         `);
 
-        // 5. Table : Économie
+        // 5. Économie
         await client.db.execute(`
             CREATE TABLE IF NOT EXISTS economy (
                 user_id VARCHAR(255),
@@ -140,7 +140,19 @@ if (fs.existsSync(eventsPath)) {
             )
         `);
 
-        // 6. Table : Paramètres du Serveur (La totale)
+        // 6. Compteur d'Actions (Câlins, Bisous...) - NOUVEAU
+        await client.db.execute(`
+            CREATE TABLE IF NOT EXISTS action_counts (
+                guild_id VARCHAR(255),
+                user_from VARCHAR(255),
+                user_to VARCHAR(255),
+                action_type VARCHAR(50),
+                count INT DEFAULT 0,
+                PRIMARY KEY (guild_id, user_from, user_to, action_type)
+            )
+        `);
+
+        // 7. Paramètres Serveur (Configuration Complète)
         await client.db.execute(`
             CREATE TABLE IF NOT EXISTS guild_settings (
                 guild_id VARCHAR(255) PRIMARY KEY, 
@@ -149,7 +161,7 @@ if (fs.existsSync(eventsPath)) {
                 antiraid_enabled BOOLEAN DEFAULT FALSE, 
                 antiraid_account_age_days INT DEFAULT 7, 
                 
-                -- MODÉRATION & LOGS
+                -- MODÉRATION
                 log_channel_id VARCHAR(255), 
                 automod_enabled BOOLEAN DEFAULT FALSE,
                 automod_words TEXT DEFAULT NULL,
@@ -161,14 +173,14 @@ if (fs.existsSync(eventsPath)) {
                 welcome_color VARCHAR(10) DEFAULT '#ffffff',
                 autorole_id VARCHAR(255) DEFAULT NULL,
 
-                -- SYSTÈME DE NIVEAUX
+                -- NIVEAUX
                 levels_enabled BOOLEAN DEFAULT TRUE,
                 level_up_message VARCHAR(1000) DEFAULT "🎉 Bravo {user}, tu passes au Niveau {level} !"
             )
         `);
 
         // --- C. Migrations Automatiques ---
-        // (Ajoute les colonnes manquantes si la DB existe déjà, évite les erreurs SQL)
+        // Ajoute les colonnes si elles manquent (évite de devoir supprimer la DB)
         const migrations = [
             "ALTER TABLE guild_settings ADD COLUMN welcome_bg VARCHAR(500) DEFAULT 'https://i.imgur.com/vH1W4Qc.jpeg'",
             "ALTER TABLE guild_settings ADD COLUMN welcome_color VARCHAR(10) DEFAULT '#ffffff'",
@@ -179,27 +191,26 @@ if (fs.existsSync(eventsPath)) {
         ];
         
         for (const sql of migrations) {
-            try { await client.db.execute(sql); } catch(e) { /* On ignore si la colonne existe déjà */ }
+            try { await client.db.execute(sql); } catch(e) { /* Ignore erreur si colonne existe */ }
         }
 
         // --- D. Connexion Discord ---
         await client.login(process.env.DISCORD_TOKEN);
         
-        // Enregistrement des commandes Slash auprès de Discord
+        // Enregistrement des commandes Slash
         const commandsData = [];
         client.commands.forEach(cmd => commandsData.push(cmd.data.toJSON()));
         
         const rest = new REST().setToken(process.env.DISCORD_TOKEN);
-        
         console.log('⏳ Enregistrement des commandes slash...');
         await rest.put(
             Routes.applicationCommands(client.user.id),
             { body: commandsData }
         );
         
-        console.log(`✨ ${client.user.tag} est en ligne et opérationnel !`);
+        console.log(`✨ ${client.user.tag} est en ligne !`);
 
-        // --- E. Lancement du Dashboard Web ---
+        // --- E. Lancement du Site Web ---
         require('./website/server')(client);
 
     } catch (error) {
@@ -207,8 +218,8 @@ if (fs.existsSync(eventsPath)) {
     }
 })();
 
-// Petit gestionnaire de secours pour les interactions non gérées
+// Anti-crash simple pour interactions non gérées
 client.on('interactionCreate', async i => {
     if (!i.isChatInputCommand()) return;
-    // Si la commande n'est pas trouvée par le handler principal, on ne fait rien ici pour éviter le crash
+    // Les erreurs sont gérées dans events/interactionCreate.js
 });
