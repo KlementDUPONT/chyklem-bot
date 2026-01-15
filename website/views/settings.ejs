@@ -33,14 +33,13 @@
         .stat-value { font-size: 2rem; font-weight: bold; color: white; }
         .stat-label { color: #8e9297; }
 
-        /* Formulaires */
+        /* Formulaires & Tables */
         .form-control, .form-select { background: #202225; border: 1px solid #202225; color: white; padding: 12px; }
         .form-control:focus, .form-select:focus { background: #202225; color: white; border-color: var(--accent); box-shadow: none; }
         .form-label { font-weight: 600; color: #b9bbbe; margin-bottom: 8px; }
         .form-switch .form-check-input { height: 1.5em; width: 3em; cursor: pointer; }
         .form-switch .form-check-input:checked { background-color: #3ba55d; border-color: #3ba55d; }
 
-        /* Tables */
         .cmd-table { width: 100%; border-collapse: collapse; }
         .cmd-table th { text-align: left; padding: 10px; color: #8e9297; border-bottom: 1px solid #40444b; }
         .cmd-table td { padding: 15px 10px; border-bottom: 1px solid #2f3136; }
@@ -76,9 +75,13 @@
             
             <div class="nav-category">Modules</div>
             <div class="nav-btn" onclick="showTab('welcome', this)"><i class="fas fa-door-open"></i> Bienvenue</div>
+            <div class="nav-btn" onclick="showTab('social', this)"><i class="fas fa-gift"></i> Social & Anniv</div>
             <div class="nav-btn" onclick="showTab('levels', this)"><i class="fas fa-trophy"></i> Niveaux (XP)</div>
             <div class="nav-btn" onclick="showTab('moderation', this)"><i class="fas fa-gavel"></i> Modération</div>
             <div class="nav-btn" onclick="showTab('security', this)"><i class="fas fa-shield-alt"></i> Sécurité</div>
+
+            <div class="nav-category">Logs</div>
+            <div class="nav-btn" onclick="showTab('logs', this)"><i class="fas fa-list-alt"></i> Historique</div>
 
             <a href="/dashboard" class="nav-btn mt-auto text-danger"><i class="fas fa-sign-out-alt"></i> Quitter</a>
         </div>
@@ -115,8 +118,43 @@
                     </div>
                 </div>
 
+                <div id="social" class="module-section">
+                    <h2 class="mb-4">Social & Anniversaires</h2>
+                    <div class="config-box">
+                        <label class="form-label">Salon des Anniversaires</label>
+                        <select name="birthday_channel_id" class="form-select">
+                            <option value="">🚫 Désactivé</option>
+                            <% channels.forEach(c => { if(c.type===0){ %>
+                                <option value="<%= c.id %>" <%= settings.birthday_channel_id===c.id?'selected':'' %>>#<%= c.name %></option>
+                            <% }}) %>
+                        </select>
+                        <div class="form-text text-muted">Le bot y souhaitera joyeux anniversaire le matin à 08h00.</div>
+                    </div>
+
+                    <div class="config-box">
+                        <h5>🏆 Top Interactions (Câlins/Bisous)</h5>
+                        <table class="cmd-table mt-3">
+                            <thead><tr><th>De</th><th>Vers</th><th>Type</th><th>Total</th></tr></thead>
+                            <tbody>
+                                <% if (actionTop.length > 0) { %>
+                                    <% actionTop.forEach(a => { %>
+                                        <tr>
+                                            <td><span class="cmd-trigger"><%= a.user_from %></span></td>
+                                            <td><span class="cmd-trigger"><%= a.user_to %></span></td>
+                                            <td><%= a.action_type %></td>
+                                            <td class="fw-bold"><%= a.count %></td>
+                                        </tr>
+                                    <% }) %>
+                                <% } else { %>
+                                    <tr><td colspan="4" class="text-muted">Aucune interaction pour le moment.</td></tr>
+                                <% } %>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
                 <div id="welcome" class="module-section">
-                    <h2 class="mb-4">Bienvenue & Design</h2>
+                    <h2 class="mb-4">Bienvenue</h2>
                     <div class="config-box">
                         <div class="row">
                             <div class="col-md-6">
@@ -127,7 +165,7 @@
                                         <option value="<%= c.id %>" <%= settings.welcome_channel_id===c.id?'selected':'' %>>#<%= c.name %></option>
                                     <% }}) %>
                                 </select>
-                                <label class="form-label">Rôle Automatique</label>
+                                <label class="form-label">Rôle Auto</label>
                                 <select name="autorole_id" class="form-select mb-3">
                                     <option value="">🚫 Aucun</option>
                                     <% roles.forEach(r => { if(r.name!=='@everyone' && !r.managed){ %>
@@ -150,13 +188,13 @@
                 </div>
 
                 <div id="levels" class="module-section">
-                    <h2 class="mb-4">Système de Niveaux</h2>
+                    <h2 class="mb-4">Niveaux</h2>
                     <div class="config-box d-flex justify-content-between align-items-center">
-                        <div><h5>Activer l'XP</h5><div class="text-muted">Les membres gagnent de l'XP en parlant.</div></div>
+                        <div><h5>Activer l'XP</h5><div class="text-muted">Gain d'XP en discutant.</div></div>
                         <div class="form-check form-switch"><input class="form-check-input" type="checkbox" name="levels_enabled" <%= settings.levels_enabled ? 'checked' : '' %>></div>
                     </div>
                     <div class="config-box">
-                        <label class="form-label">Message de Level Up</label>
+                        <label class="form-label">Message Level Up</label>
                         <input type="text" name="level_up_message" class="form-control" value="<%= settings.level_up_message %>">
                     </div>
                 </div>
@@ -174,7 +212,7 @@
                     </div>
                     <div class="config-box">
                         <div class="d-flex justify-content-between align-items-center mb-3">
-                            <div><h5 class="text-warning">Auto-Mod</h5><div class="text-muted">Supprime les mots interdits.</div></div>
+                            <div><h5 class="text-warning">Auto-Mod</h5><div class="text-muted">Anti-insultes.</div></div>
                             <div class="form-check form-switch"><input class="form-check-input" type="checkbox" name="automod_enabled" <%= settings.automod_enabled ? 'checked' : '' %>></div>
                         </div>
                         <label class="form-label">Mots interdits</label>
@@ -185,7 +223,7 @@
                 <div id="security" class="module-section">
                     <h2 class="mb-4">Sécurité</h2>
                     <div class="config-box d-flex justify-content-between align-items-center">
-                        <div><h5 class="text-danger">Anti-Raid</h5><div class="text-muted">Kick les comptes récents.</div></div>
+                        <div><h5 class="text-danger">Anti-Raid</h5><div class="text-muted">Kick comptes récents.</div></div>
                         <div class="form-check form-switch"><input class="form-check-input" type="checkbox" name="antiraid_enabled" <%= settings.antiraid_enabled ? 'checked' : '' %>></div>
                     </div>
                     <div class="config-box">
@@ -202,75 +240,84 @@
 
             </form>
 
-            <div id="customcmds" class="module-section">
-                <h2 class="mb-4">Commandes Personnalisées</h2>
+            <div id="logs" class="module-section">
+                <h2 class="mb-4">Historique & Sanctions</h2>
                 <div class="config-box">
-                    <h5>✨ Créer une commande</h5>
-                    <form action="/settings/<%= guild.id %>/commands/add" method="POST" class="row g-3 align-items-end mt-2">
-                        <div class="col-md-4"><label class="form-label">Déclencheur</label><input type="text" name="trigger" class="form-control" placeholder="ex: !insta" required></div>
-                        <div class="col-md-6"><label class="form-label">Réponse</label><input type="text" name="response" class="form-control" placeholder="Abonnez-vous..." required></div>
-                        <div class="col-md-2"><button type="submit" class="btn btn-primary w-100"><i class="fas fa-plus"></i></button></div>
-                    </form>
-                </div>
-                <div class="config-box p-0 overflow-hidden">
-                    <table class="cmd-table">
-                        <thead><tr><th>Déclencheur</th><th>Réponse</th><th style="text-align: right;">Action</th></tr></thead>
+                    <h5>📜 Dernières Sanctions (Warns)</h5>
+                    <table class="cmd-table mt-3">
+                        <thead><tr><th>Date</th><th>Utilisateur</th><th>Modérateur</th><th>Raison</th></tr></thead>
                         <tbody>
-                            <% if (customCommands.length > 0) { %>
-                                <% customCommands.forEach(cmd => { %>
+                            <% if (warnings.length > 0) { %>
+                                <% warnings.forEach(w => { %>
                                     <tr>
-                                        <td><span class="cmd-trigger"><%= cmd.trigger_word %></span></td>
-                                        <td class="text-muted text-truncate" style="max-width: 300px;"><%= cmd.response_text %></td>
-                                        <td style="text-align: right;">
-                                            <form action="/settings/<%= guild.id %>/commands/delete" method="POST" style="display:inline;">
-                                                <input type="hidden" name="command_id" value="<%= cmd.id %>">
-                                                <button type="submit" class="btn btn-danger btn-sm"><i class="fas fa-trash"></i></button>
-                                            </form>
-                                        </td>
+                                        <td class="text-muted" style="font-size: 0.9em;"><%= new Date(w.date).toLocaleDateString() %></td>
+                                        <td><span class="cmd-trigger"><%= w.user_id %></span></td>
+                                        <td><span class="cmd-trigger"><%= w.moderator_id %></span></td>
+                                        <td><%= w.reason %></td>
                                     </tr>
                                 <% }) %>
                             <% } else { %>
-                                <tr><td colspan="3" class="text-center py-4 text-muted">Aucune commande.</td></tr>
+                                <tr><td colspan="4" class="text-muted text-center py-4">Aucune sanction enregistrée.</td></tr>
                             <% } %>
                         </tbody>
                     </table>
                 </div>
             </div>
 
+            <div id="customcmds" class="module-section">
+                <h2 class="mb-4">Commandes Perso</h2>
+                <div class="config-box">
+                    <form action="/settings/<%= guild.id %>/commands/add" method="POST" class="row g-3 align-items-end mt-2">
+                        <div class="col-md-4"><label class="form-label">Déclencheur</label><input type="text" name="trigger" class="form-control" placeholder="ex: !insta" required></div>
+                        <div class="col-md-6"><label class="form-label">Réponse</label><input type="text" name="response" class="form-control" placeholder="..." required></div>
+                        <div class="col-md-2"><button type="submit" class="btn btn-primary w-100"><i class="fas fa-plus"></i></button></div>
+                    </form>
+                </div>
+                <div class="config-box p-0 overflow-hidden">
+                    <table class="cmd-table">
+                        <% if (customCommands.length > 0) { %>
+                            <% customCommands.forEach(cmd => { %>
+                                <tr>
+                                    <td><span class="cmd-trigger"><%= cmd.trigger_word %></span></td>
+                                    <td class="text-muted"><%= cmd.response_text %></td>
+                                    <td style="text-align: right;">
+                                        <form action="/settings/<%= guild.id %>/commands/delete" method="POST" style="display:inline;">
+                                            <input type="hidden" name="command_id" value="<%= cmd.id %>">
+                                            <button type="submit" class="btn btn-danger btn-sm"><i class="fas fa-trash"></i></button>
+                                        </form>
+                                    </td>
+                                </tr>
+                            <% }) %>
+                        <% } else { %>
+                            <tr><td colspan="3" class="text-center py-3 text-muted">Aucune commande.</td></tr>
+                        <% } %>
+                    </table>
+                </div>
+            </div>
+
             <div id="economy" class="module-section">
-                <h2 class="mb-4">Gestion Économie</h2>
-                
+                <h2 class="mb-4">Économie</h2>
                 <div class="config-box">
                     <h5>🏆 Top 5 Richesse</h5>
                     <table class="cmd-table">
-                        <thead><tr><th>ID Utilisateur</th><th>Solde</th></tr></thead>
-                        <tbody>
-                            <% if (economyTop.length > 0) { %>
-                                <% economyTop.forEach(eco => { %>
-                                    <tr>
-                                        <td><span class="cmd-trigger"><%= eco.user_id %></span></td>
-                                        <td class="text-success fw-bold"><%= eco.money %> $</td>
-                                    </tr>
-                                <% }) %>
-                            <% } else { %>
-                                <tr><td colspan="2" class="text-muted text-center py-3">Personne n'a d'argent...</td></tr>
-                            <% } %>
-                        </tbody>
+                        <% if (economyTop.length > 0) { %>
+                            <% economyTop.forEach(eco => { %>
+                                <tr>
+                                    <td><span class="cmd-trigger"><%= eco.user_id %></span></td>
+                                    <td class="text-success fw-bold"><%= eco.money %> $</td>
+                                </tr>
+                            <% }) %>
+                        <% } else { %>
+                            <tr><td colspan="2" class="text-muted text-center py-3">Personne n'a d'argent...</td></tr>
+                        <% } %>
                     </table>
                 </div>
-
                 <div class="config-box">
-                    <h5>👮 Gestion Admin (Modifier Solde)</h5>
+                    <h5>👮 Gestion Admin</h5>
                     <form action="/settings/<%= guild.id %>/economy/update" method="POST" class="row g-3 align-items-end mt-2">
-                        <div class="col-md-4"><label class="form-label">ID Utilisateur</label><input type="text" name="user_id" class="form-control" placeholder="123456789..." required></div>
-                        <div class="col-md-3"><label class="form-label">Action</label>
-                            <select name="action" class="form-select">
-                                <option value="add">➕ Ajouter</option>
-                                <option value="remove">➖ Retirer</option>
-                                <option value="set">✏️ Définir</option>
-                            </select>
-                        </div>
-                        <div class="col-md-3"><label class="form-label">Montant</label><input type="number" name="amount" class="form-control" placeholder="1000" required></div>
+                        <div class="col-md-4"><label class="form-label">ID User</label><input type="text" name="user_id" class="form-control" required></div>
+                        <div class="col-md-3"><select name="action" class="form-select"><option value="add">Ajouter</option><option value="remove">Retirer</option><option value="set">Définir</option></select></div>
+                        <div class="col-md-3"><input type="number" name="amount" class="form-control" required></div>
                         <div class="col-md-2"><button type="submit" class="btn btn-warning w-100"><i class="fas fa-check"></i></button></div>
                     </form>
                 </div>
@@ -291,7 +338,6 @@
         const colorInput = document.getElementById('colorInput');
         const previewBox = document.getElementById('previewBox');
         const previewText = document.getElementById('previewText');
-
         function updatePreview() {
             if(bgInput.value) previewBox.style.backgroundImage = `url('${bgInput.value}')`;
             previewText.style.color = colorInput.value;
