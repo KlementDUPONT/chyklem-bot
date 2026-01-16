@@ -29,8 +29,8 @@ module.exports = async (member, settings) => {
     // 1. CHEMINS
     const localBgPath = path.join(process.cwd(), 'assets', 'banner.png');
 
-    // 2. RÉGLAGES FORCÉS (Modifiés selon ta demande)
-    const opacity = 0.5; // On force l'opacité à 0.5 (plus sombre)
+    // 2. RÉGLAGES
+    const opacity = 0.5; // On garde l'opacité sombre à 0.5
 
     const titleText = settings.welcome_title || 'BIENVENUE';
     const colTitle = settings.welcome_title_color || '#ffffff';
@@ -55,7 +55,7 @@ module.exports = async (member, settings) => {
         }
     } catch (e) { console.error("Erreur Fond:", e); }
 
-    // OVERLAY SOMBRE (0.5)
+    // OVERLAY SOMBRE
     ctx.save();
     ctx.fillStyle = `rgba(0, 0, 0, ${opacity})`;
     ctx.fillRect(0, 0, 700, 250);
@@ -82,18 +82,18 @@ module.exports = async (member, settings) => {
         ctx.restore();
     } catch (e) { console.error("Erreur Avatar:", e); }
 
-    // TEXTES (Tailles réduites)
+    // TEXTES (Encore plus petits)
     
-    // Titre : 40px -> 32px
+    // Titre : 26px (Taille encore réduite)
     ctx.fillStyle = colTitle;
-    ctx.font = 'bold 32px "MyCustomFont"'; 
+    ctx.font = 'bold 26px "MyCustomFont"'; 
     ctx.fillText(titleText, 250, 110);
 
-    // Pseudo : 60px -> 48px (et redimensionnement auto si trop long)
+    // Pseudo : 40px (Taille encore réduite)
     ctx.fillStyle = colUser;
-    ctx.font = '48px "MyCustomFont"';
+    ctx.font = '40px "MyCustomFont"';
     
-    let fontSize = 48;
+    let fontSize = 40;
     const name = member.displayName.toUpperCase();
     do {
         ctx.font = `${fontSize -= 2}px "MyCustomFont"`;
