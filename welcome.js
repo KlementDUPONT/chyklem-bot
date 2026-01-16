@@ -1,4 +1,4 @@
-const { GlobalFonts, Canvas, Image, SKRSContext2D, loadImage } = require('@napi-rs/canvas');
+const { Canvas, loadImage } = require('@napi-rs/canvas');
 const fs = require('fs');
 const path = require('path');
 
@@ -18,13 +18,12 @@ function applyRoundedCorners(ctx, x, y, width, height, radius) {
 }
 
 module.exports = async (member, settings) => {
-    // --- 1. CONFIGURATION FORCÉE ---
-    
-    // C'est ICI que l'image est fixée définitivement
-    const bgUrl = 'https://i.imgur.com/F9wfMxH.png';
+    // --- 1. CHEMIN DE L'IMAGE LOCALE ---
+    // On construit le chemin vers /app/assets/banner.png
+    const localPath = path.join(process.cwd(), 'assets', 'banner.png');
 
-    // On garde les autres réglages (Couleurs, Opacité) depuis la DB
-    // Nettoyage de l'opacité (virgule -> point) au cas où
+    // --- 2. RÉGLAGES ---
+    // On nettoie l'opacité (remplace virgule par point)
     let opacity = settings.welcome_opacity;
     if (typeof opacity === 'string') opacity = opacity.replace(',', '.');
     opacity = parseFloat(opacity);
@@ -36,24 +35,33 @@ module.exports = async (member, settings) => {
     const colBorder = settings.welcome_border_color || '#ffffff';
     const isCircle = settings.welcome_shape !== 'square';
 
-    // --- 2. DESSIN ---
+    // --- 3. DESSIN ---
     const canvas = new Canvas(700, 250);
     const ctx = canvas.getContext('2d');
 
-    // Chargement de l'image forcée
-    try {
-        const bg = await loadImage(bgUrl);
+    // Chargement de l'image locale
+    let bgLoaded = false;
+    if (fs.existsSync(localPath)) {
+        try {
+            const bg = await loadImage(localPath);
+            applyRoundedCorners(ctx, 0, 0, 700, 250, 30);
+            ctx.drawImage(bg, 0, 0, 700, 250);
+            bgLoaded = true;
+        } catch (e) {
+            console.error(`[ERREUR] Image locale corrompue : ${localPath}`);
+        }
+    } else {
+        console.error(`[ERREUR] Image introuvable ici : ${localPath}`);
+    }
+
+    // Fond de secours (Si tu as oublié de mettre l'image dans le dossier)
+    if (!bgLoaded) {
         applyRoundedCorners(ctx, 0, 0, 700, 250, 30);
-        ctx.drawImage(bg, 0, 0, 700, 250);
-    } catch (e) {
-        console.error(`[ERREUR] Impossible de charger l'image forcée : ${bgUrl}`);
-        // Fallback rose si jamais Imgur est en panne
-        applyRoundedCorners(ctx, 0, 0, 700, 250, 30);
-        ctx.fillStyle = '#ff9aa2';
+        ctx.fillStyle = '#ff9aa2'; // Rose
         ctx.fillRect(0, 0, 700, 250);
     }
 
-    // Calque sombre
+    // Overlay Sombre
     ctx.save();
     ctx.fillStyle = `rgba(0, 0, 0, ${opacity})`;
     ctx.fillRect(0, 0, 700, 250);
@@ -82,7 +90,7 @@ module.exports = async (member, settings) => {
         ctx.clip();
         ctx.drawImage(avatar, 45, 45, 160, 160);
         ctx.restore();
-    } catch (e) { console.error("Erreur avatar", e); }
+    } catch (e) { console.error("Erreur avatar:", e.message); }
 
     // Textes
     ctx.fillStyle = colTitle;

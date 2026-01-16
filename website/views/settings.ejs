@@ -88,9 +88,9 @@
                 <div class="row">
                     <div class="col-lg-6">
                         <div class="config-box h-100">
-                            <h5>Aperçu (Image Fixe)</h5>
+                            <h5>Aperçu</h5>
                             <div class="position-relative mb-3 text-center text-white" style="height: 180px; border-radius: 20px; overflow: hidden; background: #333;">
-                                <img src="https://i.imgur.com/F9wfMxH.png" style="width: 100%; height: 100%; object-fit: cover; opacity: 1;">
+                                <div style="position:absolute; top:0; left:0; width:100%; height:100%; background: linear-gradient(45deg, #ff9aa2, #b5ead7);"></div>
                                 <div style="position:absolute; top:0; left:0; width:100%; height:100%; background: rgba(0,0,0, <%= settings.welcome_opacity !== undefined ? settings.welcome_opacity : 0.3 %>);"></div>
                                 <div style="position:absolute; top:50%; left:50%; transform: translate(-50%, -50%); width: 100%;">
                                     <h2 style="color: <%= settings.welcome_title_color || '#fff' %>; font-size: 24px; margin: 0; font-weight: bold;"><%= settings.welcome_title || 'BIENVENUE' %></h2>
@@ -98,7 +98,9 @@
                                 </div>
                             </div>
                             
-                            <p class="text-muted small text-center"><em>L'image de fond est définie par le système.</em></p>
+                            <div class="alert alert-primary">
+                                <i class="fas fa-info-circle me-2"></i> L'image utilisée est le fichier <strong>banner.png</strong> stocké dans le bot.
+                            </div>
 
                             <label class="form-label">Opacité (0.0 à 1.0)</label>
                             <input type="number" name="welcome_opacity" class="form-control" step="0.1" min="0" max="1" value="<%= settings.welcome_opacity !== undefined ? settings.welcome_opacity : 0.3 %>">
