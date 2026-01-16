@@ -22,7 +22,9 @@ const client = new Client({
 
 client.commands = new Collection();
 
-// --- 1. CHARGEMENT COMMANDES ---
+// ============================================================
+// 1. CHARGEMENT DES COMMANDES
+// ============================================================
 const foldersPath = path.join(__dirname, 'commands');
 if (fs.existsSync(foldersPath)) {
     const commandFolders = fs.readdirSync(foldersPath);
@@ -35,22 +37,25 @@ if (fs.existsSync(foldersPath)) {
                 try { 
                     const command = require(filePath); 
                     if ('data' in command && 'execute' in command) client.commands.set(command.data.name, command); 
-                } catch (err) { console.error(`[CMD] Erreur ${file}:`, err); }
+                } catch (err) { console.error(`[CMD] Erreur chargement ${file}:`, err); }
             }
         }
     }
 }
 
-// --- 2. BASE DE DONNÉES & INITIALISATION ---
+// ============================================================
+// 2. INITIALISATION BASE DE DONNÉES & BOT
+// ============================================================
 (async () => {
     try {
+        // Connexion DB
         client.db = mysql.createPool({ uri: process.env.MYSQL_URL, waitForConnections: true, connectionLimit: 10, queueLimit: 0, enableKeepAlive: true, keepAliveInitialDelay: 0 });
         await client.db.query('SELECT 1');
         console.log('💾 Base de données connectée.');
 
-        // Création des tables
+        // Création Tables
         const tables = [
-            `CREATE TABLE IF NOT EXISTS guild_settings (guild_id VARCHAR(32) PRIMARY KEY)`, // Table principale
+            `CREATE TABLE IF NOT EXISTS guild_settings (guild_id VARCHAR(32) PRIMARY KEY)`,
             `CREATE TABLE IF NOT EXISTS levels (user_id VARCHAR(32), guild_id VARCHAR(32), xp INT DEFAULT 0, level INT DEFAULT 0, PRIMARY KEY (user_id, guild_id))`,
             `CREATE TABLE IF NOT EXISTS level_rewards (guild_id VARCHAR(32), level INT, role_id VARCHAR(32), PRIMARY KEY (guild_id, level))`,
             `CREATE TABLE IF NOT EXISTS warnings (id INT AUTO_INCREMENT PRIMARY KEY, guild_id VARCHAR(32), user_id VARCHAR(32), moderator_id VARCHAR(32), reason TEXT, date TIMESTAMP DEFAULT CURRENT_TIMESTAMP)`,
@@ -64,7 +69,7 @@ if (fs.existsSync(foldersPath)) {
         ];
         for (const sql of tables) await client.db.execute(sql);
 
-        // Ajout des colonnes (Mise à jour automatique)
+        // Mises à jour Colonnes (Migrations)
         const requiredColumns = [
             "ADD COLUMN module_welcome BOOLEAN DEFAULT TRUE", "ADD COLUMN module_levels BOOLEAN DEFAULT TRUE", "ADD COLUMN module_economy BOOLEAN DEFAULT TRUE",
             "ADD COLUMN module_moderation BOOLEAN DEFAULT TRUE", "ADD COLUMN module_social BOOLEAN DEFAULT TRUE", "ADD COLUMN module_customcmds BOOLEAN DEFAULT TRUE",
@@ -86,61 +91,168 @@ if (fs.existsSync(foldersPath)) {
         ];
         for (const colSql of requiredColumns) { try { await client.db.execute(`ALTER TABLE guild_settings ${colSql}`); } catch (e) { if (e.errno !== 1060) {} } }
         
+        // Login Discord
         await client.login(process.env.DISCORD_TOKEN);
         
-        // --- SYNCHRONISATION DES SERVEURS (Le correctif est ICI) ---
-        console.log("🔄 Vérification des serveurs dans la DB...");
+        // SYNCHRONISATION SERVEURS (Évite l'erreur "Non Configuré")
+        console.log("🔄 Vérification des serveurs...");
         client.guilds.cache.forEach(async guild => {
-            // Pour chaque serveur où est le bot, on s'assure qu'une ligne existe
             await client.db.query("INSERT IGNORE INTO guild_settings (guild_id) VALUES (?)", [guild.id]);
         });
-        console.log("✅ Serveurs synchronisés !");
-
+        
+        // Enregistrement Commandes Slash
         const commandsData = [];
         client.commands.forEach(cmd => commandsData.push(cmd.data.toJSON()));
         const rest = new REST().setToken(process.env.DISCORD_TOKEN);
         await rest.put(Routes.applicationCommands(client.user.id), { body: commandsData });
         
         console.log(`✨ ${client.user.tag} est en ligne !`);
+        
+        // Lancement Dashboard & Services
         require('./website/server')(client);
+        startBackgroundServices(client);
+        startStatusRotation(client);
 
-    } catch (error) { console.error('❌ ERREUR :', error); }
+    } catch (error) { console.error('❌ ERREUR CRITIQUE :', error); }
 })();
 
-// --- 3. GESTION DES COMMANDES ---
+// ============================================================
+// 3. GESTION DES EVENTS
+// ============================================================
+
+// Interaction (Commandes)
 client.on('interactionCreate', async interaction => {
     if (!interaction.isChatInputCommand()) return;
     const command = client.commands.get(interaction.commandName);
     if (!command) return;
-    try { await command.execute(interaction); } catch (error) { console.error(error); if(!interaction.replied) interaction.reply({content:'Erreur!', ephemeral:true}); }
+    try { await command.execute(interaction); } 
+    catch (error) { 
+        console.error(error); 
+        if(!interaction.replied && !interaction.deferred) interaction.reply({content:'Erreur exécution commande.', ephemeral:true});
+        else interaction.followUp({content:'Erreur exécution commande.', ephemeral:true});
+    }
 });
 
-// --- 4. EVENT : NOUVEAU SERVEUR (Pour l'avenir) ---
+// Nouveau Serveur Rejoint
 client.on('guildCreate', async guild => {
-    // Quand le bot rejoint un nouveau serveur, on l'ajoute direct en DB
     await client.db.query("INSERT IGNORE INTO guild_settings (guild_id) VALUES (?)", [guild.id]);
-    console.log(`➕ Nouveau serveur rejoint : ${guild.name} (Ajouté en DB)`);
+    console.log(`➕ Nouveau serveur : ${guild.name}`);
 });
 
-// --- 5. WELCOME & AUTRES EVENTS ---
+// ARRIVÉE D'UN MEMBRE (WELCOME SÉCURISÉ)
 client.on('guildMemberAdd', async member => {
+    // 1. Config
+    let conf;
     try {
         const [settings] = await client.db.query('SELECT * FROM guild_settings WHERE guild_id = ?', [member.guild.id]);
         if (!settings.length || !settings[0].module_welcome || !settings[0].welcome_channel_id) return;
-        const conf = settings[0];
-        const channel = member.guild.channels.cache.get(conf.welcome_channel_id);
-        if (!channel) return;
-        
-        let messageText = (conf.welcome_message || 'Bienvenue {user} !').replace('{user}', `<@${member.id}>`).replace('{server}', member.guild.name).replace('{count}', member.guild.memberCount);
+        conf = settings[0];
+    } catch (e) { return console.error("Erreur DB Welcome:", e); }
+
+    const channel = member.guild.channels.cache.get(conf.welcome_channel_id);
+    if (!channel) return;
+
+    // 2. Texte
+    let messageText = (conf.welcome_message || 'Bienvenue {user} !')
+        .replace('{user}', `<@${member.id}>`)
+        .replace('{server}', member.guild.name)
+        .replace('{count}', member.guild.memberCount);
+
+    // 3. Image (Try/Catch isolé)
+    let attachment = null;
+    try {
         const buffer = await generateWelcomeImage(member, conf);
-        const attachment = new AttachmentBuilder(buffer, { name: 'welcome.png' });
-        channel.send({ content: messageText, files: [attachment] }).catch(console.error);
-        if (conf.autorole_id) {
+        attachment = new AttachmentBuilder(buffer, { name: 'welcome.png' });
+    } catch (error) {
+        console.error("❌ Erreur Génération Image (Le texte sera envoyé sans image) :", error.message);
+    }
+
+    // 4. Envoi
+    try {
+        const payload = { content: messageText };
+        if (attachment) payload.files = [attachment];
+        await channel.send(payload);
+    } catch (e) { console.error("❌ Erreur Envoi Message:", e.message); }
+
+    // 5. Auto-Rôle (Try/Catch isolé)
+    if (conf.autorole_id) {
+        try {
             const role = member.guild.roles.cache.get(conf.autorole_id);
-            if (role) member.roles.add(role).catch(() => {});
-        }
-    } catch (e) { console.error("Erreur Welcome:", e); }
+            const botRole = member.guild.members.me.roles.highest;
+
+            if (role) {
+                if (role.position >= botRole.position) {
+                    console.error(`⚠️ ÉCHEC AUTOROLE : Le rôle '${role.name}' est placé au-dessus du rôle du bot !`);
+                } else {
+                    await member.roles.add(role);
+                    console.log(`✅ AutoRole '${role.name}' donné à ${member.user.tag}`);
+                }
+            }
+        } catch (e) { console.error("❌ Erreur AutoRole:", e.message); }
+    }
 });
+
+// Vocaux Temporaires
+client.on('voiceStateUpdate', async (oldState, newState) => {
+    const guild = newState.guild || oldState.guild; if (!guild) return;
+    try {
+        const [s] = await client.db.query('SELECT module_tempvoice, tempvoice_channel_id, tempvoice_category_id FROM guild_settings WHERE guild_id = ?', [guild.id]);
+        if (!s.length || !s[0].module_tempvoice) return;
+        const conf = s[0];
+
+        // Création
+        if (newState.channelId === conf.tempvoice_channel_id) {
+            const channel = await guild.channels.create({
+                name: `Salon de ${newState.member.displayName}`, type: ChannelType.GuildVoice, parent: conf.tempvoice_category_id,
+                permissionOverwrites: [{ id: newState.member.id, allow: [PermissionFlagsBits.ManageChannels, PermissionFlagsBits.MoveMembers] }]
+            });
+            await newState.setChannel(channel);
+        }
+        // Suppression
+        if (oldState.channelId && oldState.channel && oldState.channel.members.size === 0 && oldState.channel.parentId === conf.tempvoice_category_id && oldState.channelId !== conf.tempvoice_channel_id) {
+            await oldState.channel.delete().catch(() => {});
+        }
+    } catch (e) {}
+});
+
+// ============================================================
+// 4. SERVICES
+// ============================================================
+function startStatusRotation(client) {
+    const rotate = async () => {
+        try {
+            const [acts] = await client.db.query('SELECT * FROM bot_activities');
+            const [sets] = await client.db.query("SELECT setting_value FROM bot_settings WHERE setting_key = 'presence_interval'");
+            let interval = sets.length ? parseInt(sets[0].setting_value) : 10;
+            if (acts.length > 0) {
+                const act = acts[Math.floor(Date.now() / (interval * 1000)) % acts.length];
+                client.user.setActivity(act.name, { type: act.type });
+            } else {
+                client.user.setActivity('le Dashboard 🌸', { type: ActivityType.Watching });
+            }
+            setTimeout(rotate, interval * 1000);
+        } catch (e) { setTimeout(rotate, 10000); }
+    };
+    rotate();
+}
+
+function startBackgroundServices(client) {
+    setInterval(async () => {
+        try {
+            const [timers] = await client.db.query('SELECT * FROM timers');
+            const now = Date.now();
+            for (const t of timers) {
+                if (now - t.last_sent >= t.interval_minutes * 60000) {
+                    const ch = client.channels.cache.get(t.channel_id);
+                    if (ch) {
+                        await ch.send(`${t.role_id ? `<@&${t.role_id}> ` : ''}${t.message}`);
+                        await client.db.query('UPDATE timers SET last_sent = ? WHERE id = ?', [now, t.id]);
+                    }
+                }
+            }
+        } catch (e) {}
+    }, 60000);
+}
 
 const cleanExit = () => { console.log('🛑 Arrêt...'); client.destroy(); client.db.end(); process.exit(0); };
 process.on('SIGTERM', cleanExit); process.on('SIGINT', cleanExit);
