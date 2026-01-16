@@ -82,30 +82,34 @@ module.exports = async (member, settings) => {
         ctx.restore();
     } catch (e) { console.error("Erreur Avatar:", e); }
 
-    // --- TEXTES (ALIGNÉS À GAUCHE) ---
+    // --- TEXTES INTELLIGENTS ---
     
-    // IMPORTANT : On force l'alignement à gauche
+    // Zone de sécurité : Le texte commence à 230px et NE DOIT PAS dépasser 500px (pour ne pas toucher le logo à droite)
+    // Largeur Max autorisée = 270px
+    const maxTextWidth = 270; 
+    const startX = 230;
+
     ctx.textAlign = 'left';
 
-    // Titre : GRAND (50px)
+    // 1. TITRE "BIENVENUE"
     ctx.fillStyle = colTitle;
-    ctx.font = 'bold 50px "MyCustomFont"'; 
-    // On démarre à X = 220 (juste à droite de l'avatar)
-    ctx.fillText(titleText, 220, 110); 
-
-    // Pseudo : PLUS PETIT (32px max)
-    ctx.fillStyle = colUser;
-    ctx.font = '32px "MyCustomFont"';
-    
-    let fontSize = 32;
-    const name = member.displayName.toUpperCase();
-    // Largeur max augmentée car on a plus de place à droite
+    let titleSize = 50; // On tente 50px
     do {
-        ctx.font = `${fontSize -= 2}px "MyCustomFont"`;
-    } while (ctx.measureText(name).width > 460 && fontSize > 10);
+        ctx.font = `bold ${titleSize}px "MyCustomFont"`;
+        titleSize -= 2;
+    } while (ctx.measureText(titleText).width > maxTextWidth && titleSize > 10);
+    ctx.fillText(titleText, startX, 110);
+
+    // 2. PSEUDO
+    ctx.fillStyle = colUser;
+    let nameSize = 32; // On tente 32px
+    const name = member.displayName.toUpperCase();
+    do {
+        ctx.font = `${nameSize}px "MyCustomFont"`;
+        nameSize -= 2;
+    } while (ctx.measureText(name).width > maxTextWidth && nameSize > 10);
     
-    // On démarre aussi à X = 220
-    ctx.fillText(name, 220, 175);
+    ctx.fillText(name, startX, 175);
 
     return canvas.toBuffer('image/png');
 };
