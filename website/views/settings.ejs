@@ -177,26 +177,44 @@
             <div id="presence" class="module-section">
                 <h2>Présence Bot 🤖</h2>
                 <div class="alert alert-info border-0 shadow-sm"><i class="fas fa-info-circle me-2"></i> Ces statuts sont globaux et tournent en boucle.</div>
-
+                
                 <div class="config-box">
-                    <h5>Vitesse de rotation</h5>
-                    </div>
+                    <p class="text-muted">Utilisez le formulaire ci-dessous pour ajouter des statuts ou changer la vitesse.</p>
+                </div>
             </div>
 
             <div id="welcome" class="module-section">
                 <h2>Bienvenue</h2>
                 <div class="config-box">
-                    <div class="row">
+                    <div class="row g-3">
                         <div class="col-md-6">
                             <label class="form-label">Salon d'arrivée</label>
-                            <select name="welcome_channel_id" class="form-select mb-3">
+                            <select name="welcome_channel_id" class="form-select">
                                 <option value="">Désactivé</option>
                                 <% channels.forEach(c => { if(c.type===0){ %> <option value="<%= c.id %>" <%= settings.welcome_channel_id===c.id?'selected':'' %>>#<%= c.name %></option> <% }}) %>
                             </select>
                         </div>
-                        <div class="col-md-6">
-                            <label class="form-label">Image URL</label>
-                            <input type="text" name="welcome_bg" class="form-control" value="<%= settings.welcome_bg %>">
+                        
+                        <div class="col-md-12 text-center my-3">
+                             <img src="<%= settings.welcome_bg || 'https://i.imgur.com/vH1W4Qc.jpeg' %>" 
+                                  style="max-height: 150px; border-radius: 15px; border: 3px solid <%= settings.welcome_color || '#ffffff' %>; object-fit: cover; width: 100%;">
+                             <p class="text-muted small mt-1">Aperçu du fond</p>
+                        </div>
+
+                        <div class="col-md-9">
+                            <label class="form-label">URL de l'Image de fond</label>
+                            <input type="text" name="welcome_bg" class="form-control" value="<%= settings.welcome_bg %>" placeholder="https://...">
+                        </div>
+                        
+                        <div class="col-md-3">
+                            <label class="form-label">Couleur Texte</label>
+                            <input type="color" name="welcome_color" class="form-control form-control-color w-100" value="<%= settings.welcome_color || '#ffffff' %>" title="Choisir la couleur">
+                        </div>
+
+                        <div class="col-md-12">
+                            <label class="form-label">Message de bienvenue</label>
+                            <textarea name="welcome_message" class="form-control" rows="2"><%= settings.welcome_message %></textarea>
+                            <div class="form-text text-muted">Variables : {user}, {server}, {count}</div>
                         </div>
                     </div>
                 </div>
@@ -466,10 +484,8 @@
         if(target) target.classList.add('active');
 
         // 2. Gérer les sections d'actions séparées (Forms additionnels)
-        // On les cache toutes d'abord
         document.querySelectorAll('.module-sub-section').forEach(el => el.style.display = 'none');
         
-        // On affiche celle qui correspond à l'onglet ouvert
         if(id === 'presence') document.getElementById('presence_actions').style.display = 'block';
         if(id === 'timers') document.getElementById('timers_actions').style.display = 'block';
         if(id === 'reactionroles') document.getElementById('rr_actions').style.display = 'block';

@@ -3,38 +3,60 @@ const { SlashCommandBuilder, PermissionFlagsBits } = require('discord.js');
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('setwelcome')
-        .setDescription('Définit le salon de bienvenue')
+        .setDescription('Configure le système de bienvenue')
         .addChannelOption(option => 
             option.setName('salon')
-                .setDescription('Le salon où envoyer les images')
+                .setDescription('Le salon où envoyer le message')
                 .setRequired(true))
-        .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
+        .addStringOption(option => 
+            option.setName('image')
+                .setDescription('Lien de l\'image de fond (http...)')
+                .setRequired(false))
+        .addStringOption(option => 
+            option.setName('couleur')
+                .setDescription('Couleur du texte et du cercle (ex: #ff0000 ou rouge)')
+                .setRequired(false)),
 
     async execute(interaction) {
-        // 1. On dit à Discord de patienter (évite l'erreur "ne répond plus")
-        await interaction.deferReply({ ephemeral: true });
+        // Vérification des permissions (Admin seulement)
+        if (!interaction.member.permissions.has(PermissionFlagsBits.Administrator)) {
+            return interaction.reply({ content: "⛔ Tu n'as pas la permission !", ephemeral: true });
+        }
+
+        const channel = interaction.options.getChannel('salon');
+        const imageUrl = interaction.options.getString('image');
+        const color = interaction.options.getString('couleur') || '#ffffff'; // Blanc par défaut
+
+        // Vérification basique du lien image
+        if (imageUrl && !imageUrl.startsWith('http')) {
+            return interaction.reply({ content: "❌ L'image doit être un lien valide (commençant par http).", ephemeral: true });
+        }
 
         try {
-            const channel = interaction.options.getChannel('salon');
-            
-            // 2. On tente l'écriture en base de données
-            // Note : On utilise 'INSERT ... ON DUPLICATE KEY UPDATE' pour gérer la création ou la mise à jour
+            // Mise à jour de la Base de Données
+            // On utilise ON DUPLICATE KEY UPDATE pour créer ou mettre à jour
             await interaction.client.db.query(`
-                INSERT INTO guild_settings (guild_id, welcome_channel_id) 
-                VALUES (?, ?) 
-                ON DUPLICATE KEY UPDATE welcome_channel_id = ?
-            `, [interaction.guild.id, channel.id, channel.id]);
+                INSERT INTO guild_settings (guild_id, module_welcome, welcome_channel_id, welcome_bg, welcome_color) 
+                VALUES (?, 1, ?, ?, ?)
+                ON DUPLICATE KEY UPDATE 
+                module_welcome = 1,
+                welcome_channel_id = ?, 
+                welcome_bg = COALESCE(?, welcome_bg), 
+                welcome_color = ?
+            `, [
+                interaction.guild.id, channel.id, imageUrl, color, // Insert values
+                channel.id, imageUrl, color // Update values
+            ]);
 
-            // 3. Succès !
-            await interaction.editReply({ 
-                content: `✅ C'est configuré ! Les images de bienvenue iront dans ${channel}.` 
-            });
+            let replyMsg = `✅ **Bienvenue configuré !**\n\n📜 Salon : ${channel}\n🎨 Couleur : \`${color}\``;
+            if (imageUrl) replyMsg += `\n🖼️ Fond : [Voir l'image](${imageUrl})`;
+            else replyMsg += `\n🖼️ Fond : *(Celui actuel ou par défaut)*`;
+
+            await interaction.reply({ content: replyMsg, ephemeral: true });
 
         } catch (error) {
-            console.error('❌ Erreur Database :', error); // Affiche l'erreur dans les logs Coolify
-            await interaction.editReply({ 
-                content: `❌ Oups, erreur de base de données : \n\`${error.message}\`` 
-            });
+            console.error(error);
+            await interaction.reply({ content: "❌ Erreur lors de la sauvegarde en base de données.", ephemeral: true });
         }
-    }
+    },
 };

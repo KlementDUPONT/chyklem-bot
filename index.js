@@ -1,8 +1,9 @@
 require('dotenv').config();
 const fs = require('fs');
 const path = require('path');
-const { Client, Collection, GatewayIntentBits, REST, Routes, Partials, ActivityType, ChannelType, PermissionFlagsBits } = require('discord.js');
+const { Client, Collection, GatewayIntentBits, REST, Routes, Partials, ActivityType, ChannelType, PermissionFlagsBits, AttachmentBuilder } = require('discord.js');
 const mysql = require('mysql2/promise');
+const generateWelcomeImage = require('./welcome'); // <--- IMPORT DU NOUVEAU FICHIER
 
 const BOT_COLOR = '#FFB6C1'; 
 const PASTEL_PALETTE = ['#FFB7B2', '#FFDAC1', '#E2F0CB', '#B5EAD7', '#C7CEEA', '#F8B88B', '#FAF884', '#B2CEFE', '#F2A2E8', '#FEF9E7', '#ff9aa2', '#e0f2f1', '#f3e5f5', '#fff3e0', '#fbe9e7'];
@@ -12,7 +13,7 @@ const client = new Client({
         GatewayIntentBits.Guilds,
         GatewayIntentBits.GuildMessages,
         GatewayIntentBits.MessageContent, 
-        GatewayIntentBits.GuildMembers,
+        GatewayIntentBits.GuildMembers, // CRUCIAL pour détecter l'arrivée
         GatewayIntentBits.GuildPresences, 
         GatewayIntentBits.GuildVoiceStates,
         GatewayIntentBits.GuildMessageReactions
@@ -39,16 +40,7 @@ if (fs.existsSync(foldersPath)) {
         }
     }
 }
-
-const eventsPath = path.join(__dirname, 'events');
-if (fs.existsSync(eventsPath)) {
-    const eventFiles = fs.readdirSync(eventsPath).filter(file => file.endsWith('.js'));
-    for (const file of eventFiles) {
-        const filePath = path.join(eventsPath, file);
-        const event = require(filePath);
-        if (event.once) client.once(event.name, (...args) => event.execute(...args)); else client.on(event.name, (...args) => event.execute(...args));
-    }
-}
+// (Events folder ignoré ici car tout est dans index.js pour éviter les conflits)
 
 // 2. DB & LOGIQUE
 (async () => {
@@ -100,33 +92,24 @@ if (fs.existsSync(eventsPath)) {
         
         console.log(`✨ ${client.user.tag} est en ligne !`);
 
-        // --- SYSTEME DE ROTATION AVEC LOGS DE DEBUG ---
+        // --- STATUS ROTATIF ---
         let activityIndex = 0;
         const rotateStatus = async () => {
             try {
-                // Récupération
                 const [activities] = await client.db.query('SELECT * FROM bot_activities');
                 const [settings] = await client.db.query("SELECT setting_value FROM bot_settings WHERE setting_key = 'presence_interval'");
                 let intervalSeconds = settings.length ? parseInt(settings[0].setting_value) : 10;
                 if (intervalSeconds < 5) intervalSeconds = 5;
 
-                // LOG DE DEBUG : Regarde tes logs Coolify !
-                console.log(`[STATUS DEBUG] Activités en DB : ${activities.length} | Prochain changement dans : ${intervalSeconds}s`);
-                if (activities.length > 0) {
-                    console.log(`[STATUS DEBUG] Liste actuelle : ${activities.map(a => a.name).join(', ')}`);
-                }
-
                 if (activities.length === 0) {
-                    client.user.setActivity('🟢 Base de données VIDE', { type: ActivityType.Watching });
+                    client.user.setActivity('le Dashboard 🌸', { type: ActivityType.Watching });
                 } else {
                     activityIndex = (activityIndex + 1) % activities.length;
                     const act = activities[activityIndex];
                     client.user.setActivity(act.name, { type: act.type });
                 }
-
                 setTimeout(rotateStatus, intervalSeconds * 1000);
-
-            } catch (e) { console.error("Erreur Presence:", e); setTimeout(rotateStatus, 10000); }
+            } catch (e) { setTimeout(rotateStatus, 10000); }
         };
         rotateStatus(); 
 
@@ -136,7 +119,43 @@ if (fs.existsSync(eventsPath)) {
     } catch (error) { console.error('❌ ERREUR :', error); }
 })();
 
-// 3. VOCAUX (Surnom)
+// ============================================================
+// 3. EVENT : ARRIVÉE D'UN MEMBRE (BIENVENUE)
+// ============================================================
+client.on('guildMemberAdd', async member => {
+    try {
+        const [settings] = await client.db.query('SELECT * FROM guild_settings WHERE guild_id = ?', [member.guild.id]);
+        if (!settings.length || !settings[0].module_welcome || !settings[0].welcome_channel_id) return;
+        
+        const conf = settings[0];
+        const channel = member.guild.channels.cache.get(conf.welcome_channel_id);
+        if (!channel) return;
+
+        // 1. Message Texte (avec remplacements)
+        let messageText = conf.welcome_message
+            .replace('{user}', `<@${member.id}>`)
+            .replace('{server}', member.guild.name)
+            .replace('{count}', member.guild.memberCount);
+
+        // 2. Génération Image (via welcome.js)
+        const buffer = await generateWelcomeImage(member, conf.welcome_bg, conf.welcome_color);
+        const attachment = new AttachmentBuilder(buffer, { name: 'welcome.png' });
+
+        // 3. Envoi
+        channel.send({ content: messageText, files: [attachment] }).catch(console.error);
+
+        // 4. AutoRole (si configuré)
+        if (conf.autorole_id) {
+            const role = member.guild.roles.cache.get(conf.autorole_id);
+            if (role) member.roles.add(role).catch(() => {});
+        }
+
+    } catch (e) { console.error("Erreur Welcome:", e); }
+});
+
+// ============================================================
+// 4. LOGIQUE VOCAUX (Surnom Intelligent)
+// ============================================================
 client.on('voiceStateUpdate', async (oldState, newState) => {
     try {
         const guild = newState.guild || oldState.guild; if (!guild) return;
@@ -161,7 +180,7 @@ client.on('voiceStateUpdate', async (oldState, newState) => {
     } catch (e) {}
 });
 
-// 4. SERVICES
+// SERVICES & ANTI-ZOMBIE
 function startBackgroundServices(client) {
     setInterval(async () => {
         try {
@@ -185,7 +204,6 @@ function startBackgroundServices(client) {
         } catch (e) {}
     }, 60000);
 
-    // Anniversaires... (Identique)
     let lastCheckDate = "";
     setInterval(async () => {
         try {
@@ -213,7 +231,5 @@ function startBackgroundServices(client) {
 }
 
 client.on('interactionCreate', async i => { if (!i.isChatInputCommand()) return; });
-
-// 5. ARRÊT PROPRE (Anti-Zombie)
 const cleanExit = () => { console.log('🛑 Arrêt demandé... Bye !'); client.destroy(); client.db.end(); process.exit(0); };
 process.on('SIGTERM', cleanExit); process.on('SIGINT', cleanExit);
