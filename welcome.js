@@ -18,56 +18,42 @@ function applyRoundedCorners(ctx, x, y, width, height, radius) {
 }
 
 module.exports = async (member, settings) => {
-    // --- 1. NETTOYAGE DES DONNÉES (ANTI-CRASH) ---
+    // --- 1. CONFIGURATION FORCÉE ---
     
-    // Correction Opacité (Virgule -> Point)
-    let opacity = settings.welcome_opacity;
-    if (typeof opacity === 'string') {
-        opacity = opacity.replace(',', '.'); // On change la virgule en point
-    }
-    opacity = parseFloat(opacity);
-    if (isNaN(opacity) || opacity < 0 || opacity > 1) opacity = 0.3; // Valeur par défaut si invalide
+    // C'est ICI que l'image est fixée définitivement
+    const bgUrl = 'https://i.imgur.com/F9wfMxH.png';
 
-    // Correction Couleurs (Si vide -> Blanc)
+    // On garde les autres réglages (Couleurs, Opacité) depuis la DB
+    // Nettoyage de l'opacité (virgule -> point) au cas où
+    let opacity = settings.welcome_opacity;
+    if (typeof opacity === 'string') opacity = opacity.replace(',', '.');
+    opacity = parseFloat(opacity);
+    if (isNaN(opacity) || opacity < 0 || opacity > 1) opacity = 0.3;
+
     const titleText = settings.welcome_title || 'BIENVENUE';
     const colTitle = settings.welcome_title_color || '#ffffff';
     const colUser = settings.welcome_user_color || '#ffffff';
     const colBorder = settings.welcome_border_color || '#ffffff';
     const isCircle = settings.welcome_shape !== 'square';
 
-    // Gestion URL Image
-    let bgUrl = settings.welcome_bg;
-    if (bgUrl && bgUrl.startsWith('/uploads/')) {
-        bgUrl = path.join(process.cwd(), 'public', bgUrl);
-    }
-
     // --- 2. DESSIN ---
     const canvas = new Canvas(700, 250);
     const ctx = canvas.getContext('2d');
 
-    let bgLoaded = false;
-
-    // Tentative de chargement de l'image (Try/Catch pour éviter le crash)
-    if (bgUrl) {
-        try {
-            const bg = await loadImage(bgUrl);
-            applyRoundedCorners(ctx, 0, 0, 700, 250, 30);
-            ctx.drawImage(bg, 0, 0, 700, 250);
-            bgLoaded = true;
-        } catch (e) {
-            console.error(`[ERREUR IMAGE] Impossible de charger: ${bgUrl}`);
-            // On ne fait rien, on laissera le fond rose
-        }
-    }
-
-    // Fond de secours (Si image cassée ou lien album imgur incorrect)
-    if (!bgLoaded) {
+    // Chargement de l'image forcée
+    try {
+        const bg = await loadImage(bgUrl);
         applyRoundedCorners(ctx, 0, 0, 700, 250, 30);
-        ctx.fillStyle = '#ff9aa2'; // Rose
+        ctx.drawImage(bg, 0, 0, 700, 250);
+    } catch (e) {
+        console.error(`[ERREUR] Impossible de charger l'image forcée : ${bgUrl}`);
+        // Fallback rose si jamais Imgur est en panne
+        applyRoundedCorners(ctx, 0, 0, 700, 250, 30);
+        ctx.fillStyle = '#ff9aa2';
         ctx.fillRect(0, 0, 700, 250);
     }
 
-    // Calque sombre (Opacité corrigée)
+    // Calque sombre
     ctx.save();
     ctx.fillStyle = `rgba(0, 0, 0, ${opacity})`;
     ctx.fillRect(0, 0, 700, 250);

@@ -88,9 +88,9 @@
                 <div class="row">
                     <div class="col-lg-6">
                         <div class="config-box h-100">
-                            <h5>Visuel</h5>
+                            <h5>Aperçu (Image Fixe)</h5>
                             <div class="position-relative mb-3 text-center text-white" style="height: 180px; border-radius: 20px; overflow: hidden; background: #333;">
-                                <img src="<%= settings.welcome_bg || 'https://i.imgur.com/vH1W4Qc.jpeg' %>" style="width: 100%; height: 100%; object-fit: cover; opacity: 1;">
+                                <img src="https://i.imgur.com/F9wfMxH.png" style="width: 100%; height: 100%; object-fit: cover; opacity: 1;">
                                 <div style="position:absolute; top:0; left:0; width:100%; height:100%; background: rgba(0,0,0, <%= settings.welcome_opacity !== undefined ? settings.welcome_opacity : 0.3 %>);"></div>
                                 <div style="position:absolute; top:50%; left:50%; transform: translate(-50%, -50%); width: 100%;">
                                     <h2 style="color: <%= settings.welcome_title_color || '#fff' %>; font-size: 24px; margin: 0; font-weight: bold;"><%= settings.welcome_title || 'BIENVENUE' %></h2>
@@ -98,13 +98,7 @@
                                 </div>
                             </div>
                             
-                            <label class="form-label">Image de Fond</label>
-                            <input type="text" name="welcome_bg" class="form-control mb-2" value="<%= settings.welcome_bg %>" placeholder="Lien https://i.imgur.com/...">
-                            
-                            <div class="input-group mb-3">
-                                <label class="input-group-text"><i class="fas fa-upload"></i></label>
-                                <input type="file" name="welcome_bg_file" class="form-control" accept="image/*">
-                            </div>
+                            <p class="text-muted small text-center"><em>L'image de fond est définie par le système.</em></p>
 
                             <label class="form-label">Opacité (0.0 à 1.0)</label>
                             <input type="number" name="welcome_opacity" class="form-control" step="0.1" min="0" max="1" value="<%= settings.welcome_opacity !== undefined ? settings.welcome_opacity : 0.3 %>">
@@ -141,7 +135,7 @@
                                     </select>
                                 </div>
                                 <div class="col-md-6">
-                                    <label class="form-label">Auto-Rôle (Donné à l'arrivée)</label>
+                                    <label class="form-label">Auto-Rôle</label>
                                     <select name="autorole_id" class="form-select">
                                         <option value="">Aucun</option>
                                         <% roles.forEach(r => { if(r.name !== '@everyone' && !r.managed){ %> 
@@ -183,7 +177,7 @@
         </div>
         <div id="timers_actions" class="module-sub-section" style="display:none;"><div class="config-box"><form action="/settings/<%= guild.id %>/timers/add" method="POST"><div class="row g-2"><div class="col-4"><select name="channel_id" class="form-select"><% channels.forEach(c => { if(c.type===0){ %><option value="<%= c.id %>">#<%= c.name %></option><% }}) %></select></div><div class="col-2"><input name="interval" type="number" class="form-control" placeholder="Min" required></div><div class="col-4"><input name="message" class="form-control" required></div><div class="col-2"><button class="btn btn-primary w-100">Add</button></div></div></form></div><div class="config-box mt-3"><table class="table"><% timers.forEach(t => { %><tr><td><%= t.message %> (<%= t.interval_minutes %>m)</td><td class="text-end"><form action="/settings/<%= guild.id %>/timers/delete" method="POST"><input type="hidden" name="id" value="<%= t.id %>"><button class="btn btn-danger btn-sm">X</button></form></td></tr><% }) %></table></div></div>
         <div id="economy_actions" class="module-sub-section" style="display:none;"><div class="config-box"><h5>Top 5</h5><table class="table"><% economyTop.forEach((e,i)=>{ %><tr><td>#<%= i+1 %></td><td><%= e.displayName %></td><td><%= e.money %> $</td></tr><% }) %></table></div></div>
-        </div>
+    </div>
 </div>
 <script>
     const activeTabFromServer = "<%= activeTab %>";
