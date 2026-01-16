@@ -61,7 +61,6 @@ module.exports = (client) => {
         const [timers] = await client.db.query('SELECT * FROM timers WHERE guild_id = ?', [guildId]);
         const [reactionRoles] = await client.db.query('SELECT * FROM reaction_roles WHERE guild_id = ?', [guildId]);
         
-        // Presence Data
         const [botActivities] = await client.db.query('SELECT * FROM bot_activities');
         const [botSettings] = await client.db.query("SELECT setting_value FROM bot_settings WHERE setting_key = 'presence_interval'");
         const presenceInterval = botSettings.length ? botSettings[0].setting_value : 10;
@@ -96,24 +95,10 @@ module.exports = (client) => {
         } catch (error) { res.send("Erreur SQL: " + error.message); }
     });
 
-    // PRESENCE (NOUVEAU: Intervalle & Activités)
-    app.post('/settings/:guildId/presence/add', async (req, res) => {
-        await client.db.query('INSERT INTO bot_activities (type, name) VALUES (?, ?)', [req.body.type, req.body.name]);
-        res.redirect(`/settings/${req.params.guildId}?tab=presence`);
-    });
-    app.post('/settings/:guildId/presence/delete', async (req, res) => {
-        await client.db.query('DELETE FROM bot_activities WHERE id = ?', [req.body.id]);
-        res.redirect(`/settings/${req.params.guildId}?tab=presence`);
-    });
-    app.post('/settings/:guildId/presence/config', async (req, res) => {
-        const interval = parseInt(req.body.interval);
-        if (interval >= 5) {
-            await client.db.query("INSERT INTO bot_settings (setting_key, setting_value) VALUES ('presence_interval', ?) ON DUPLICATE KEY UPDATE setting_value = ?", [interval, interval]);
-        }
-        res.redirect(`/settings/${req.params.guildId}?tab=presence`);
-    });
+    app.post('/settings/:guildId/presence/add', async (req, res) => { await client.db.query('INSERT INTO bot_activities (type, name) VALUES (?, ?)', [req.body.type, req.body.name]); res.redirect(`/settings/${req.params.guildId}?tab=presence`); });
+    app.post('/settings/:guildId/presence/delete', async (req, res) => { await client.db.query('DELETE FROM bot_activities WHERE id = ?', [req.body.id]); res.redirect(`/settings/${req.params.guildId}?tab=presence`); });
+    app.post('/settings/:guildId/presence/config', async (req, res) => { const i = parseInt(req.body.interval); if (i >= 5) await client.db.query("INSERT INTO bot_settings (setting_key, setting_value) VALUES ('presence_interval', ?) ON DUPLICATE KEY UPDATE setting_value = ?", [i, i]); res.redirect(`/settings/${req.params.guildId}?tab=presence`); });
 
-    // AUTRES ROUTES
     app.post('/settings/:guildId/timers/add', async (req, res) => { await client.db.query('INSERT INTO timers (guild_id, channel_id, message, interval_minutes, role_id) VALUES (?, ?, ?, ?, ?)', [req.params.guildId, req.body.channel_id, req.body.message, req.body.interval, req.body.role_id || null]); res.redirect(`/settings/${req.params.guildId}?tab=timers`); });
     app.post('/settings/:guildId/timers/delete', async (req, res) => { await client.db.query('DELETE FROM timers WHERE id = ?', [req.body.id]); res.redirect(`/settings/${req.params.guildId}?tab=timers`); });
     app.post('/settings/:guildId/rr/add', async (req, res) => { await client.db.query('INSERT INTO reaction_roles (guild_id, channel_id, message_id, emoji, role_id) VALUES (?, ?, ?, ?, ?)', [req.params.guildId, req.body.channel_id, req.body.message_id, req.body.emoji, req.body.role_id]); try { const c = client.guilds.cache.get(req.params.guildId).channels.cache.get(req.body.channel_id); (await c.messages.fetch(req.body.message_id)).react(req.body.emoji); } catch(e){} res.redirect(`/settings/${req.params.guildId}?tab=reactionroles`); });
