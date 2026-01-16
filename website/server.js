@@ -3,33 +3,32 @@ const session = require('express-session');
 const passport = require('passport');
 const { Strategy } = require('passport-discord');
 const path = require('path');
-const multer = require('multer'); // Nouveau module
+const multer = require('multer');
 const fs = require('fs');
 
-// --- CONFIGURATION UPLOAD (MULTER) ---
-// On crée le dossier s'il n'existe pas
+// --- 1. CONFIGURATION UPLOAD ---
+// Création automatique du dossier de stockage
 const uploadDir = path.join(__dirname, '../public/uploads');
 if (!fs.existsSync(uploadDir)) {
     fs.mkdirSync(uploadDir, { recursive: true });
 }
 
-// Configuration du stockage
+// Configuration de stockage Multer
 const storage = multer.diskStorage({
     destination: (req, file, cb) => {
         cb(null, uploadDir);
     },
     filename: (req, file, cb) => {
-        // Nom unique : date + nom original nettoyé
-        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-        const cleanName = file.originalname.replace(/[^a-zA-Z0-9.]/g, "_");
-        cb(null, uniqueSuffix + '-' + cleanName);
+        // On renomme pour éviter les doublons : timestamp-nomdufichier
+        const uniqueName = Date.now() + '-' + file.originalname.replace(/[^a-zA-Z0-9.]/g, "_");
+        cb(null, uniqueName);
     }
 });
 
-// Filtre pour n'accepter que les images
+// Filtre (Images seulement)
 const fileFilter = (req, file, cb) => {
     if (file.mimetype.startsWith('image/')) cb(null, true);
-    else cb(new Error('Pas une image !'), false);
+    else cb(new Error('Le fichier doit être une image'), false);
 };
 
 const upload = multer({ storage: storage, fileFilter: fileFilter });
@@ -50,7 +49,7 @@ module.exports = (client) => {
     app.set('view engine', 'ejs');
     app.set('views', path.join(__dirname, 'views'));
     
-    // IMPORTANT : Servir les fichiers statiques (images uploadées)
+    // IMPORTANT : Servir le dossier public pour que les images soient accessibles
     app.use(express.static(path.join(__dirname, '../public'))); 
     
     app.use(express.urlencoded({ extended: true }));
@@ -58,6 +57,7 @@ module.exports = (client) => {
     app.use(passport.initialize());
     app.use(passport.session());
 
+    // --- ROUTES DE BASE ---
     app.get('/', (req, res) => res.render('index', { user: req.user, bot: client.user }));
     app.get('/login', passport.authenticate('discord'));
     app.get('/auth/discord/callback', passport.authenticate('discord', { failureRedirect: '/' }), (req, res) => res.redirect('/dashboard'));
@@ -70,6 +70,7 @@ module.exports = (client) => {
         res.render('dashboard', { user: req.user, bot: client.user, guilds: finalGuilds });
     });
 
+    // Fonctions utilitaires
     async function enrichData(guild, data, idField) {
         return await Promise.all(data.map(async (item) => {
             try {
@@ -83,7 +84,7 @@ module.exports = (client) => {
         }));
     }
 
-    // SETTINGS
+    // --- PAGE SETTINGS ---
     app.get('/settings/:guildId', async (req, res) => {
         if (!req.user) return res.redirect('/login');
         const guildId = req.params.guildId;
@@ -97,7 +98,7 @@ module.exports = (client) => {
         const [botActivities] = await client.db.query('SELECT * FROM bot_activities');
         const [botSettings] = await client.db.query("SELECT setting_value FROM bot_settings WHERE setting_key = 'presence_interval'");
         const presenceInterval = botSettings.length ? botSettings[0].setting_value : 10;
-
+        
         const [economyRaw] = await client.db.query('SELECT * FROM economy WHERE guild_id = ? ORDER BY money DESC LIMIT 5', [guildId]);
         const economyTop = await enrichData(guild, economyRaw, 'user_id');
         const [warningsRaw] = await client.db.query('SELECT * FROM warnings WHERE guild_id = ? ORDER BY date DESC LIMIT 10', [guildId]);
@@ -113,8 +114,7 @@ module.exports = (client) => {
         });
     });
 
-    // SAUVEGARDE GLOBALE (AVEC UPLOAD)
-    // upload.single('welcome_bg_file') permet de gérer l'envoi du fichier
+    // --- SAUVEGARDE (AVEC GESTION FICHIER) ---
     app.post('/settings/:guildId', upload.single('welcome_bg_file'), async (req, res) => {
         if (!req.user) return res.redirect('/login');
         const d = req.body;
@@ -124,14 +124,13 @@ module.exports = (client) => {
             timers: d.module_timers === 'on', tempvoice: d.module_tempvoice === 'on', reactionroles: d.module_reactionroles === 'on'
         };
 
-        // GESTION IMAGE : Fichier uploadé VS Lien texte
-        let finalBg = d.welcome_bg; // Par défaut, on garde le lien texte
+        // 2. Logique Image : Fichier ou Lien ?
+        let finalBg = d.welcome_bg; // Par défaut, on prend le lien texte
         
-        // Si un fichier a été envoyé, on utilise son chemin local
         if (req.file) {
-            // On aura un lien du type : "http://mondomaine/uploads/monimage.png"
-            // Le /uploads est servi par express.static
+            // Si un fichier est uploadé, on remplace le lien par le chemin local
             finalBg = `/uploads/${req.file.filename}`;
+            console.log(`[UPLOAD] Nouvelle image : ${finalBg}`);
         }
 
         try {
@@ -144,16 +143,19 @@ module.exports = (client) => {
                 WHERE guild_id=?`, 
             [
                 mods.welcome, mods.levels, mods.economy, mods.moderation, mods.social, mods.customcmds, mods.timers, mods.tempvoice, mods.reactionroles, 
-                d.welcome_channel_id||null, finalBg||'', // ICI on utilise finalBg
+                d.welcome_channel_id||null, finalBg||'', 
                 d.welcome_title||'BIENVENUE', d.welcome_title_color||'#ffffff', d.welcome_user_color||'#ffffff', d.welcome_border_color||'#ffffff', d.welcome_opacity||0.3, d.welcome_shape||'circle',
                 d.welcome_message, d.log_channel_id||null, d.autorole_id||null, d.level_up_message, d.automod_enabled==='on', d.automod_words, d.tempvoice_channel_id||null, d.tempvoice_category_id||null, 
                 req.params.guildId
             ]);
             res.redirect(`/settings/${req.params.guildId}?success=true&tab=${d.current_tab||'overview'}`);
-        } catch (error) { res.send("Erreur SQL: " + error.message); }
+        } catch (error) { 
+            console.error(error);
+            res.send("Erreur SQL: " + error.message); 
+        }
     });
 
-    // ... (Le reste des routes actions spécifiques reste identique)
+    // --- AUTRES POSTS ---
     app.post('/settings/:guildId/presence/add', async (req, res) => { await client.db.query('INSERT INTO bot_activities (type, name) VALUES (?, ?)', [req.body.type, req.body.name]); res.redirect(`/settings/${req.params.guildId}?tab=presence`); });
     app.post('/settings/:guildId/presence/delete', async (req, res) => { await client.db.query('DELETE FROM bot_activities WHERE id = ?', [req.body.id]); res.redirect(`/settings/${req.params.guildId}?tab=presence`); });
     app.post('/settings/:guildId/presence/config', async (req, res) => { const i = parseInt(req.body.interval); if (i >= 5) await client.db.query("INSERT INTO bot_settings (setting_key, setting_value) VALUES ('presence_interval', ?) ON DUPLICATE KEY UPDATE setting_value = ?", [i, i]); res.redirect(`/settings/${req.params.guildId}?tab=presence`); });

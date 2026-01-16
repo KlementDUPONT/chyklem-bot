@@ -9,13 +9,12 @@
     
     <style>
         :root {
-            /* Palette Pastel */
             --bg-color: #fdf2f8;
             --sidebar-bg: rgba(255, 255, 255, 0.6);
             --card-bg: rgba(255, 255, 255, 0.85);
             --text-main: #4a4a4a;
             --text-light: #7a7a7a;
-            --primary: #ff9aa2; /* Rose bonbon */
+            --primary: #ff9aa2; 
             --radius: 25px;
             --shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.07);
         }
@@ -29,7 +28,6 @@
             margin: 0;
         }
 
-        /* --- SIDEBAR --- */
         .wrapper { display: flex; height: 100%; }
         .sidebar {
             width: 280px;
@@ -50,14 +48,12 @@
         .nav-btn:hover, .nav-btn.active { background: white; color: var(--primary); box-shadow: 0 5px 15px rgba(255, 154, 162, 0.2); }
         .nav-btn i { margin-right: 10px; width: 20px; text-align: center; }
 
-        /* --- CONTENT --- */
         .content {
             flex: 1; padding: 40px 60px; overflow-y: auto;
             background-image: radial-gradient(#ff9aa2 1px, transparent 1px);
             background-size: 40px 40px;
         }
 
-        /* --- MODULES GRID --- */
         .module-section { display: none; animation: slideUp 0.4s cubic-bezier(0.165, 0.84, 0.44, 1); }
         .module-section.active { display: block; }
         
@@ -78,7 +74,6 @@
             box-shadow: 0 5px 15px rgba(0,0,0,0.1);
         }
 
-        /* --- CONFIG BOXES --- */
         .config-box {
             background: white; border-radius: 20px; padding: 30px;
             margin-bottom: 25px; box-shadow: var(--shadow);
@@ -87,13 +82,11 @@
         h2 { font-family: 'Fredoka', sans-serif; margin-bottom: 25px; color: #555; }
         h5 { font-family: 'Fredoka', sans-serif; margin-bottom: 15px; color: #777; }
 
-        /* --- TABLEAUX & USER --- */
         .table { --bs-table-bg: transparent; vertical-align: middle; }
         .user-cell { display: flex; align-items: center; gap: 12px; }
         .user-avatar { width: 36px; height: 36px; border-radius: 50%; border: 2px solid var(--primary); object-fit: cover; }
         .badge { padding: 8px 12px; border-radius: 10px; font-weight: 600; }
 
-        /* --- SAVE BAR --- */
         .save-bar {
             position: absolute; bottom: -100px; left: 50%; transform: translateX(-50%);
             background: white; padding: 15px 35px; border-radius: 50px;
