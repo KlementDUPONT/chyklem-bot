@@ -5,8 +5,6 @@ const { Client, Collection, GatewayIntentBits, REST, Routes, Partials, ActivityT
 const mysql = require('mysql2/promise');
 
 const BOT_COLOR = '#FFB6C1'; 
-
-// Palette Pastel pour client.pickColor()
 const PASTEL_PALETTE = ['#FFB7B2', '#FFDAC1', '#E2F0CB', '#B5EAD7', '#C7CEEA', '#F8B88B', '#FAF884', '#B2CEFE', '#F2A2E8', '#FEF9E7', '#ff9aa2', '#e0f2f1', '#f3e5f5', '#fff3e0', '#fbe9e7'];
 
 const client = new Client({
@@ -79,8 +77,9 @@ if (fs.existsSync(eventsPath)) {
             `CREATE TABLE IF NOT EXISTS birthdays (user_id VARCHAR(32), guild_id VARCHAR(32), day INT, month INT, PRIMARY KEY (user_id, guild_id))`,
             `CREATE TABLE IF NOT EXISTS timers (id INT AUTO_INCREMENT PRIMARY KEY, guild_id VARCHAR(32), channel_id VARCHAR(32), role_id VARCHAR(32), message TEXT, interval_minutes INT, last_sent BIGINT DEFAULT 0)`,
             `CREATE TABLE IF NOT EXISTS reaction_roles (id INT AUTO_INCREMENT PRIMARY KEY, guild_id VARCHAR(32), channel_id VARCHAR(32), message_id VARCHAR(32), emoji VARCHAR(255), role_id VARCHAR(32))`,
-            // NOUVEAU : Table pour la Rich Presence
             `CREATE TABLE IF NOT EXISTS bot_activities (id INT AUTO_INCREMENT PRIMARY KEY, type INT, name VARCHAR(255))`,
+            // NOUVEAU : Table pour les réglages globaux du bot (intervalle de rotation)
+            `CREATE TABLE IF NOT EXISTS bot_settings (setting_key VARCHAR(50) PRIMARY KEY, setting_value VARCHAR(255))`,
             `CREATE TABLE IF NOT EXISTS guild_settings (guild_id VARCHAR(32) PRIMARY KEY)`
         ];
         for (const sql of tables) await client.db.execute(sql);
@@ -103,6 +102,9 @@ if (fs.existsSync(eventsPath)) {
         }
         try { await client.db.execute("ALTER TABLE timers ADD COLUMN role_id VARCHAR(32) DEFAULT NULL"); } catch(e){}
 
+        // Initialisation paramètre par défaut (intervalle 10s)
+        await client.db.query("INSERT IGNORE INTO bot_settings (setting_key, setting_value) VALUES ('presence_interval', '10')");
+
         await client.login(process.env.DISCORD_TOKEN);
         
         const commandsData = [];
@@ -112,25 +114,34 @@ if (fs.existsSync(eventsPath)) {
         
         console.log(`✨ ${client.user.tag} est en ligne !`);
 
-        // --- STATUS ROTATIF DYNAMIQUE (Depuis la DB) ---
+        // --- STATUS ROTATIF INTELLIGENT ---
         let activityIndex = 0;
-        setInterval(async () => {
+        const rotateStatus = async () => {
             try {
-                // On récupère les activités depuis la base de données
+                // 1. On récupère la liste des activités
                 const [activities] = await client.db.query('SELECT * FROM bot_activities');
-                
-                // Si aucune activité configurée, on met un défaut
+                // 2. On récupère le temps de rotation configuré
+                const [settings] = await client.db.query("SELECT setting_value FROM bot_settings WHERE setting_key = 'presence_interval'");
+                let intervalSeconds = settings.length ? parseInt(settings[0].setting_value) : 10;
+                if (intervalSeconds < 5) intervalSeconds = 5; // Sécurité min 5s
+
                 if (activities.length === 0) {
                     client.user.setActivity('le Dashboard 🌸', { type: ActivityType.Watching });
                 } else {
-                    // On tourne sur les activités
                     activityIndex = (activityIndex + 1) % activities.length;
                     const act = activities[activityIndex];
-                    // ActivityType: 0=Playing, 1=Streaming, 2=Listening, 3=Watching, 5=Competing
                     client.user.setActivity(act.name, { type: act.type });
                 }
-            } catch (e) { console.error("Erreur Presence:", e); }
-        }, 10000); // Change toutes les 10s
+
+                // Relance la fonction après le temps défini (Dynamique)
+                setTimeout(rotateStatus, intervalSeconds * 1000);
+
+            } catch (e) {
+                console.error("Erreur Presence:", e);
+                setTimeout(rotateStatus, 10000); // Retry en cas d'erreur
+            }
+        };
+        rotateStatus(); // Lancement de la boucle
 
         startBackgroundServices(client);
         require('./website/server')(client);

@@ -6,52 +6,135 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@300;400;600&family=Nunito:wght@400;700&display=swap" rel="stylesheet">
+    
     <style>
-        :root { --bg-color: #fdf2f8; --sidebar-bg: rgba(255, 255, 255, 0.6); --primary: #ff9aa2; --radius: 25px; }
-        body { background: linear-gradient(135deg, #fff0f5 0%, #e6e6fa 100%); font-family: 'Nunito', sans-serif; height: 100vh; overflow: hidden; margin: 0; }
+        :root {
+            /* Palette Pastel */
+            --bg-color: #fdf2f8;
+            --sidebar-bg: rgba(255, 255, 255, 0.6);
+            --card-bg: rgba(255, 255, 255, 0.85);
+            --text-main: #4a4a4a;
+            --text-light: #7a7a7a;
+            --primary: #ff9aa2; /* Rose bonbon */
+            --radius: 25px;
+            --shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.07);
+        }
+
+        body {
+            background: linear-gradient(135deg, #fff0f5 0%, #e6e6fa 100%);
+            color: var(--text-main);
+            font-family: 'Nunito', sans-serif;
+            height: 100vh;
+            overflow: hidden;
+            margin: 0;
+        }
+
+        /* --- SIDEBAR --- */
         .wrapper { display: flex; height: 100%; }
-        .sidebar { width: 280px; background: var(--sidebar-bg); backdrop-filter: blur(10px); padding: 30px 20px; display: flex; flex-direction: column; }
-        .nav-btn { padding: 12px 18px; color: #7a7a7a; border-radius: 15px; margin-bottom: 8px; cursor: pointer; transition: 0.3s; font-weight: 700; display: flex; align-items: center; }
+        .sidebar {
+            width: 280px;
+            background: var(--sidebar-bg);
+            backdrop-filter: blur(10px);
+            padding: 30px 20px;
+            display: flex; flex-direction: column;
+            border-right: 1px solid rgba(255,255,255,0.5);
+        }
+        .server-header { text-align: center; margin-bottom: 30px; font-family: 'Fredoka', sans-serif; color: #5a5a5a; font-weight: bold; font-size: 1.2rem; }
+        
+        .nav-btn {
+            padding: 12px 18px; color: var(--text-light);
+            border-radius: 15px; margin-bottom: 8px;
+            cursor: pointer; transition: 0.3s; font-weight: 700;
+            display: flex; align-items: center; text-decoration: none;
+        }
         .nav-btn:hover, .nav-btn.active { background: white; color: var(--primary); box-shadow: 0 5px 15px rgba(255, 154, 162, 0.2); }
-        .content { flex: 1; padding: 40px 60px; overflow-y: auto; background-image: radial-gradient(#ff9aa2 1px, transparent 1px); background-size: 40px 40px; }
-        .module-section { display: none; } .module-section.active { display: block; animation: slideUp 0.4s; }
-        .modules-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 20px; }
-        .module-card { background: rgba(255,255,255,0.8); border-radius: 20px; padding: 20px; cursor: pointer; border: 2px solid white; position: relative; height: 180px; display: flex; flex-direction: column; justify-content: space-between; }
-        .module-checkbox { position: absolute; top: 15px; right: 15px; width: 20px; height: 20px; accent-color: var(--primary); z-index: 10; }
-        .config-box { background: white; border-radius: 20px; padding: 30px; margin-bottom: 25px; box-shadow: 0 5px 20px rgba(0,0,0,0.05); }
-        .save-bar { position: absolute; bottom: -100px; left: 50%; transform: translateX(-50%); background: white; padding: 15px 30px; border-radius: 50px; display: flex; gap: 20px; box-shadow: 0 10px 40px rgba(255,154,162,0.4); transition: 0.4s; z-index: 999; border: 3px solid var(--primary); }
+        .nav-btn i { margin-right: 10px; width: 20px; text-align: center; }
+
+        /* --- CONTENT --- */
+        .content {
+            flex: 1; padding: 40px 60px; overflow-y: auto;
+            background-image: radial-gradient(#ff9aa2 1px, transparent 1px);
+            background-size: 40px 40px;
+        }
+
+        /* --- MODULES GRID --- */
+        .module-section { display: none; animation: slideUp 0.4s cubic-bezier(0.165, 0.84, 0.44, 1); }
+        .module-section.active { display: block; }
+        
+        .modules-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 25px; }
+        .module-card {
+            background: var(--card-bg); border-radius: 20px; padding: 25px;
+            cursor: pointer; border: 2px solid white; position: relative;
+            height: 180px; display: flex; flex-direction: column; justify-content: space-between;
+            transition: 0.3s; box-shadow: var(--shadow);
+        }
+        .module-card:hover { transform: translateY(-5px); border-color: var(--primary); }
+        .module-checkbox { position: absolute; top: 20px; right: 20px; width: 22px; height: 22px; accent-color: var(--primary); z-index: 10; cursor: pointer; }
+        
+        .icon-box {
+            width: 55px; height: 55px; border-radius: 18px;
+            display: flex; align-items: center; justify-content: center;
+            color: white; font-size: 26px; margin-bottom: 10px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+
+        /* --- CONFIG BOXES --- */
+        .config-box {
+            background: white; border-radius: 20px; padding: 30px;
+            margin-bottom: 25px; box-shadow: var(--shadow);
+            border: 2px solid rgba(255,255,255,0.8);
+        }
+        h2 { font-family: 'Fredoka', sans-serif; margin-bottom: 25px; color: #555; }
+        h5 { font-family: 'Fredoka', sans-serif; margin-bottom: 15px; color: #777; }
+
+        /* --- TABLEAUX & USER --- */
+        .table { --bs-table-bg: transparent; vertical-align: middle; }
+        .user-cell { display: flex; align-items: center; gap: 12px; }
+        .user-avatar { width: 36px; height: 36px; border-radius: 50%; border: 2px solid var(--primary); object-fit: cover; }
+        .badge { padding: 8px 12px; border-radius: 10px; font-weight: 600; }
+
+        /* --- SAVE BAR --- */
+        .save-bar {
+            position: absolute; bottom: -100px; left: 50%; transform: translateX(-50%);
+            background: white; padding: 15px 35px; border-radius: 50px;
+            display: flex; align-items: center; gap: 20px;
+            box-shadow: 0 10px 40px rgba(255,154,162,0.4);
+            transition: 0.5s cubic-bezier(0.68, -0.55, 0.27, 1.55);
+            z-index: 999; border: 3px solid var(--primary);
+        }
         .save-bar.show { bottom: 40px; }
-        @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
-        .icon-box { width: 50px; height: 50px; border-radius: 15px; display: flex; align-items: center; justify-content: center; color: white; font-size: 24px; margin-bottom: 10px; }
-        .user-cell { display: flex; align-items: center; gap: 10px; }
-        .user-avatar { width: 32px; height: 32px; border-radius: 50%; border: 2px solid var(--primary); }
+
+        @keyframes slideUp { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
     </style>
 </head>
 <body>
 
 <div class="wrapper">
     <div class="sidebar">
-        <h4 class="mb-4 text-center" style="color:#5a5a5a"><%= guild.name %></h4>
-        <div class="nav-btn" onclick="openTab('overview')"><i class="fas fa-th-large me-2"></i> Accueil</div>
-        <hr>
-        <div class="nav-btn" onclick="openTab('presence')"><i class="fas fa-robot me-2"></i> Présence Bot</div>
-        <div class="nav-btn" onclick="openTab('reactionroles')"><i class="fas fa-magic me-2"></i> Réactions</div>
-        <div class="nav-btn" onclick="openTab('welcome')"><i class="fas fa-door-open me-2"></i> Bienvenue</div>
-        <div class="nav-btn" onclick="openTab('timers')"><i class="fas fa-clock me-2"></i> Timers</div>
-        <div class="nav-btn" onclick="openTab('tempvoice')"><i class="fas fa-microphone me-2"></i> Vocaux Temp</div>
-        <div class="nav-btn" onclick="openTab('levels')"><i class="fas fa-trophy me-2"></i> Niveaux</div>
-        <div class="nav-btn" onclick="openTab('customcmds')"><i class="fas fa-terminal me-2"></i> Commandes</div>
-        <div class="nav-btn" onclick="openTab('moderation')"><i class="fas fa-shield-alt me-2"></i> Modération</div>
-        <div class="nav-btn" onclick="openTab('economy')"><i class="fas fa-coins me-2"></i> Économie</div>
-        <a href="/dashboard" class="nav-btn mt-auto text-danger"><i class="fas fa-arrow-left me-2"></i> Retour</a>
+        <div class="server-header"><%= guild.name %></div>
+        <hr style="border-color: rgba(0,0,0,0.1);">
+        
+        <div class="nav-btn" onclick="openTab('overview')"><i class="fas fa-th-large"></i> Accueil</div>
+        <div class="nav-btn" onclick="openTab('presence')"><i class="fas fa-robot"></i> Présence Bot</div>
+        <div class="nav-btn" onclick="openTab('reactionroles')"><i class="fas fa-magic"></i> Réactions</div>
+        <div class="nav-btn" onclick="openTab('welcome')"><i class="fas fa-door-open"></i> Bienvenue</div>
+        <div class="nav-btn" onclick="openTab('timers')"><i class="fas fa-clock"></i> Timers</div>
+        <div class="nav-btn" onclick="openTab('tempvoice')"><i class="fas fa-microphone"></i> Vocaux Temp</div>
+        <div class="nav-btn" onclick="openTab('levels')"><i class="fas fa-trophy"></i> Niveaux</div>
+        <div class="nav-btn" onclick="openTab('economy')"><i class="fas fa-coins"></i> Économie</div>
+        <div class="nav-btn" onclick="openTab('moderation')"><i class="fas fa-shield-alt"></i> Modération</div>
+        <div class="nav-btn" onclick="openTab('customcmds')"><i class="fas fa-terminal"></i> Commandes</div>
+        
+        <a href="/dashboard" class="nav-btn mt-auto text-danger"><i class="fas fa-arrow-left"></i> Retour</a>
     </div>
 
     <div class="content">
+
         <% if (success) { %>
-            <div class="alert alert-success position-fixed top-0 end-0 m-4 shadow" style="z-index: 1050; border-radius: 15px;">
-                <i class="fas fa-check-circle me-2"></i> Enregistré !
+            <div class="alert alert-success position-fixed top-0 end-0 m-4 shadow border-0" style="z-index: 1050; border-radius: 15px; background: #d4edda; color: #155724;">
+                <i class="fas fa-check-circle me-2"></i> Modifications enregistrées avec succès ! ✨
             </div>
-            <script>setTimeout(() => document.querySelector('.alert').remove(), 3000);</script>
+            <script>setTimeout(() => document.querySelector('.alert').remove(), 3500);</script>
         <% } %>
 
         <form action="/settings/<%= guild.id %>" method="POST" id="settingsForm">
@@ -60,37 +143,168 @@
             <div id="overview" class="module-section">
                 <h2>Modules</h2>
                 <div class="modules-grid">
-                    <div class="module-card" onclick="openTab('presence')"><div class="icon-box" style="background:#ff9aa2"><i class="fas fa-robot"></i></div><h4>Présence Bot</h4><p class="text-muted small">Change le statut du bot.</p></div>
-                    <div class="module-card" onclick="openTab('reactionroles')"><input type="checkbox" name="module_reactionroles" class="module-checkbox" <%= settings.module_reactionroles ? 'checked' : '' %> onclick="event.stopPropagation()"><div class="icon-box" style="background:#b5ead7"><i class="fas fa-magic"></i></div><h4>Réactions</h4></div>
-                    <div class="module-card" onclick="openTab('tempvoice')"><input type="checkbox" name="module_tempvoice" class="module-checkbox" <%= settings.module_tempvoice ? 'checked' : '' %> onclick="event.stopPropagation()"><div class="icon-box" style="background:#c7ceea"><i class="fas fa-microphone"></i></div><h4>Vocaux Temp</h4></div>
-                    <div class="module-card" onclick="openTab('timers')"><input type="checkbox" name="module_timers" class="module-checkbox" <%= settings.module_timers ? 'checked' : '' %> onclick="event.stopPropagation()"><div class="icon-box" style="background:#e2f0cb"><i class="fas fa-clock"></i></div><h4>Timers</h4></div>
-                    <div class="module-card" onclick="openTab('welcome')"><input type="checkbox" name="module_welcome" class="module-checkbox" <%= settings.module_welcome ? 'checked' : '' %> onclick="event.stopPropagation()"><div class="icon-box" style="background:#ff9aa2"><i class="fas fa-door-open"></i></div><h4>Bienvenue</h4></div>
-                    <div class="module-card" onclick="openTab('economy')"><input type="checkbox" name="module_economy" class="module-checkbox" <%= settings.module_economy ? 'checked' : '' %> onclick="event.stopPropagation()"><div class="icon-box" style="background:#f6d365"><i class="fas fa-coins"></i></div><h4>Économie</h4></div>
-                    <div class="module-card" onclick="openTab('moderation')"><input type="checkbox" name="module_moderation" class="module-checkbox" <%= settings.module_moderation ? 'checked' : '' %> onclick="event.stopPropagation()"><div class="icon-box" style="background:#ff9a9e"><i class="fas fa-shield-alt"></i></div><h4>Modération</h4></div>
+                    <div class="module-card" onclick="openTab('presence')">
+                        <div class="icon-box" style="background:#ff9aa2"><i class="fas fa-robot"></i></div>
+                        <h4>Présence Bot</h4><p class="text-muted small">Change le statut rotatif.</p>
+                    </div>
+                    <div class="module-card" onclick="openTab('reactionroles')">
+                        <input type="checkbox" name="module_reactionroles" class="module-checkbox" <%= settings.module_reactionroles ? 'checked' : '' %> onclick="event.stopPropagation()">
+                        <div class="icon-box" style="background:#b5ead7"><i class="fas fa-magic"></i></div><h4>Réactions</h4>
+                    </div>
+                    <div class="module-card" onclick="openTab('tempvoice')">
+                        <input type="checkbox" name="module_tempvoice" class="module-checkbox" <%= settings.module_tempvoice ? 'checked' : '' %> onclick="event.stopPropagation()">
+                        <div class="icon-box" style="background:#c7ceea"><i class="fas fa-microphone"></i></div><h4>Vocaux Temp</h4>
+                    </div>
+                    <div class="module-card" onclick="openTab('timers')">
+                        <input type="checkbox" name="module_timers" class="module-checkbox" <%= settings.module_timers ? 'checked' : '' %> onclick="event.stopPropagation()">
+                        <div class="icon-box" style="background:#e2f0cb"><i class="fas fa-clock"></i></div><h4>Timers</h4>
+                    </div>
+                    <div class="module-card" onclick="openTab('welcome')">
+                        <input type="checkbox" name="module_welcome" class="module-checkbox" <%= settings.module_welcome ? 'checked' : '' %> onclick="event.stopPropagation()">
+                        <div class="icon-box" style="background:#ff9aa2"><i class="fas fa-door-open"></i></div><h4>Bienvenue</h4>
+                    </div>
+                    <div class="module-card" onclick="openTab('economy')">
+                        <input type="checkbox" name="module_economy" class="module-checkbox" <%= settings.module_economy ? 'checked' : '' %> onclick="event.stopPropagation()">
+                        <div class="icon-box" style="background:#f6d365"><i class="fas fa-coins"></i></div><h4>Économie</h4>
+                    </div>
+                    <div class="module-card" onclick="openTab('moderation')">
+                        <input type="checkbox" name="module_moderation" class="module-checkbox" <%= settings.module_moderation ? 'checked' : '' %> onclick="event.stopPropagation()">
+                        <div class="icon-box" style="background:#ff9a9e"><i class="fas fa-shield-alt"></i></div><h4>Modération</h4>
+                    </div>
                 </div>
             </div>
 
             <div id="presence" class="module-section">
-                <h2>Présence Bot</h2>
-                <div class="alert alert-info">Note : Ces statuts s'affichent en rotation sur tous les serveurs du bot.</div>
+                <h2>Présence Bot 🤖</h2>
+                <div class="alert alert-info border-0 shadow-sm"><i class="fas fa-info-circle me-2"></i> Ces statuts sont globaux et tournent en boucle.</div>
+
                 <div class="config-box">
-                    <form action="/settings/<%= guild.id %>/presence/add" method="POST" class="row g-2 align-items-end">
-                        <div class="col-md-3">
-                            <label>Type</label>
-                            <select name="type" class="form-select">
-                                <option value="0">Joue à</option>
-                                <option value="2">Écoute</option>
-                                <option value="3">Regarde</option>
-                                <option value="5">Participe à</option>
+                    <h5>Vitesse de rotation</h5>
+                    </div>
+            </div>
+
+            <div id="welcome" class="module-section">
+                <h2>Bienvenue</h2>
+                <div class="config-box">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <label class="form-label">Salon d'arrivée</label>
+                            <select name="welcome_channel_id" class="form-select mb-3">
+                                <option value="">Désactivé</option>
+                                <% channels.forEach(c => { if(c.type===0){ %> <option value="<%= c.id %>" <%= settings.welcome_channel_id===c.id?'selected':'' %>>#<%= c.name %></option> <% }}) %>
                             </select>
                         </div>
-                        <div class="col-md-7"><label>Texte</label><input type="text" name="name" class="form-control" placeholder="ex: de la musique..."></div>
-                        <div class="col-md-2"><button class="btn btn-primary w-100">Ajouter</button></div>
-                    </form>
+                        <div class="col-md-6">
+                            <label class="form-label">Image URL</label>
+                            <input type="text" name="welcome_bg" class="form-control" value="<%= settings.welcome_bg %>">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="tempvoice" class="module-section">
+                <h2>Vocaux Temporaires</h2>
+                <div class="config-box">
+                    <p class="text-muted">Un salon est créé quand un membre rejoint le canal créateur.</p>
+                    <label class="form-label">Salon Créateur</label>
+                    <select name="tempvoice_channel_id" class="form-select mb-3">
+                        <option value="">Non</option>
+                        <% channels.forEach(c => { if(c.type===2){ %> <option value="<%= c.id %>" <%= settings.tempvoice_channel_id===c.id?'selected':'' %>>🔊 <%= c.name %></option> <% }}) %>
+                    </select>
+                    <label class="form-label">Catégorie des salons créés</label>
+                    <select name="tempvoice_category_id" class="form-select">
+                        <option value="">Non</option>
+                        <% channels.forEach(c => { if(c.type===4){ %> <option value="<%= c.id %>" <%= settings.tempvoice_category_id===c.id?'selected':'' %>>📂 <%= c.name %></option> <% }}) %>
+                    </select>
+                </div>
+            </div>
+
+            <div id="levels" class="module-section">
+                <h2>Niveaux</h2>
+                <div class="config-box">
+                    <label class="form-label">Message de Level Up</label>
+                    <input type="text" name="level_up_message" class="form-control" value="<%= settings.level_up_message %>">
+                </div>
+            </div>
+
+            <div id="moderation" class="module-section">
+                <h2>Modération</h2>
+                <div class="config-box">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <label class="form-label">Salon de Logs</label>
+                            <select name="log_channel_id" class="form-select">
+                                <option value="">Non</option>
+                                <% channels.forEach(c => { if(c.type===0){ %> <option value="<%= c.id %>" <%= settings.log_channel_id===c.id?'selected':'' %>>#<%= c.name %></option> <% }}) %>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Mots interdits (séparés par ,)</label>
+                            <input type="text" name="automod_words" class="form-control" value="<%= settings.automod_words %>">
+                        </div>
+                    </div>
                 </div>
                 <div class="config-box">
+                    <h5>Derniers Avertissements</h5>
                     <table class="table">
-                        <% if(locals.botActivities) { botActivities.forEach(act => { %>
+                        <% warnings.forEach(w => { %>
+                            <tr>
+                                <td><small class="text-muted"><%= new Date(w.date).toLocaleDateString() %></small></td>
+                                <td>
+                                    <div class="user-cell">
+                                        <img src="<%= w.avatar %>" class="user-avatar">
+                                        <span><%= w.displayName %></span>
+                                    </div>
+                                </td>
+                                <td><%= w.reason %></td>
+                            </tr>
+                        <% }) %>
+                    </table>
+                </div>
+            </div>
+
+            <div class="save-bar" id="saveBar">
+                <span class="fw-bold" style="color: #ff9aa2;"><i class="fas fa-pencil-alt me-2"></i> Modifications non enregistrées</span>
+                <button type="button" class="btn btn-light text-muted btn-sm ms-3" onclick="window.location.reload()">Annuler</button>
+                <button type="submit" class="btn btn-danger btn-sm px-4 ms-2" style="border-radius: 20px;">Enregistrer 💖</button>
+            </div>
+        </form>
+
+        <div id="presence_actions" class="module-sub-section" style="display:none;">
+            <div class="config-box mb-4">
+                <form action="/settings/<%= guild.id %>/presence/config" method="POST" class="row g-2 align-items-end">
+                    <div class="col-md-9">
+                        <label class="form-label">Temps entre chaque message (secondes)</label>
+                        <input type="number" name="interval" class="form-control" value="<%= locals.presenceInterval %>" min="5">
+                    </div>
+                    <div class="col-md-3">
+                        <button class="btn btn-warning w-100">Appliquer Vitesse</button>
+                    </div>
+                </form>
+            </div>
+
+            <div class="config-box">
+                <h5>Ajouter une activité</h5>
+                <form action="/settings/<%= guild.id %>/presence/add" method="POST" class="row g-2 align-items-end">
+                    <div class="col-md-3">
+                        <label class="form-label">Type</label>
+                        <select name="type" class="form-select">
+                            <option value="0">Joue à</option>
+                            <option value="2">Écoute</option>
+                            <option value="3">Regarde</option>
+                            <option value="5">Participe à</option>
+                        </select>
+                    </div>
+                    <div class="col-md-7"><label class="form-label">Texte</label><input type="text" name="name" class="form-control" placeholder="ex: une super vidéo" required></div>
+                    <div class="col-md-2"><button class="btn btn-primary w-100">Ajouter</button></div>
+                </form>
+            </div>
+
+            <div class="config-box mt-4">
+                <h5>Rotation Actuelle</h5>
+                <table class="table">
+                    <% if(locals.botActivities && botActivities.length > 0) { %>
+                        <% botActivities.forEach(act => { %>
                             <tr>
                                 <td>
                                     <span class="badge bg-secondary">
@@ -105,43 +319,178 @@
                                     </form>
                                 </td>
                             </tr>
-                        <% }) } %>
-                    </table>
-                </div>
+                        <% }) %>
+                    <% } else { %>
+                        <tr><td colspan="3" class="text-center text-muted">Aucune activité configurée.</td></tr>
+                    <% } %>
+                </table>
             </div>
+        </div>
 
-            <div id="economy" class="module-section"><h2>Économie</h2><div class="config-box"><h5>Top 5</h5><table class="table"><% economyTop.forEach((eco, i) => { %><tr><td width="50">#<%= i+1 %></td><td><div class="user-cell"><img src="<%= eco.avatar %>" class="user-avatar"><strong><%= eco.displayName %></strong></div></td><td class="text-end text-success"><%= eco.money %> $</td></tr><% }) %></table></div><div class="config-box"><h5>Gestion</h5><div class="row g-2"><div class="col-md-4"><input type="text" name="user_id" class="form-control" placeholder="ID" required form="ecoForm"></div><div class="col-md-3"><select name="action" class="form-select" form="ecoForm"><option value="add">Ajouter</option><option value="remove">Retirer</option><option value="set">Définir</option></select></div><div class="col-md-3"><input type="number" name="amount" class="form-control" placeholder="Montant" required form="ecoForm"></div><div class="col-md-2"><button class="btn btn-warning w-100" form="ecoForm">Valider</button></div></div></div></div>
-            <div id="moderation" class="module-section"><h2>Modération</h2><div class="config-box"><div class="row"><div class="col-md-6"><label>Logs</label><select name="log_channel_id" class="form-select"><option value="">Non</option><% channels.forEach(c => { if(c.type===0){ %><option value="<%= c.id %>" <%= settings.log_channel_id===c.id?'selected':'' %>>#<%= c.name %></option><% }}) %></select></div><div class="col-md-6"><label>Mots interdits</label><input type="text" name="automod_words" class="form-control" value="<%= settings.automod_words %>"></div></div></div><div class="config-box"><h5>Warns</h5><table class="table"><% warnings.forEach(w => { %><tr><td><small class="text-muted"><%= new Date(w.date).toLocaleDateString() %></small></td><td><div class="user-cell"><img src="<%= w.avatar %>" class="user-avatar"><span><%= w.displayName %></span></div></td><td><%= w.reason %></td></tr><% }) %></table></div></div>
-            <div id="tempvoice" class="module-section"><h2>Vocaux Temp</h2><div class="config-box"><label>Créateur</label><select name="tempvoice_channel_id" class="form-select mb-3"><option value="">Non</option><% channels.forEach(c => { if(c.type===2){ %><option value="<%= c.id %>" <%= settings.tempvoice_channel_id===c.id?'selected':'' %>>🔊 <%= c.name %></option><% }}) %></select><label>Catégorie</label><select name="tempvoice_category_id" class="form-select"><option value="">Non</option><% channels.forEach(c => { if(c.type===4){ %><option value="<%= c.id %>" <%= settings.tempvoice_category_id===c.id?'selected':'' %>>📂 <%= c.name %></option><% }}) %></select></div></div>
-            <div id="welcome" class="module-section"><h2>Bienvenue</h2><div class="config-box"><label>Salon</label><select name="welcome_channel_id" class="form-select mb-3"><option value="">Non</option><% channels.forEach(c => { if(c.type===0){ %><option value="<%= c.id %>" <%= settings.welcome_channel_id===c.id?'selected':'' %>>#<%= c.name %></option><% }}) %></select><label>Image</label><input name="welcome_bg" class="form-control" value="<%= settings.welcome_bg %>"></div></div>
-            <div id="timers" class="module-section"><h2>Timers</h2><div class="config-box"><form action="/settings/<%= guild.id %>/timers/add" method="POST" class="row g-2 align-items-end"><div class="col-md-3"><label>Salon</label><select name="channel_id" class="form-select"><% channels.forEach(c => { if(c.type===0){ %><option value="<%= c.id %>">#<%= c.name %></option><% }}) %></select></div><div class="col-md-3"><label>Rôle</label><select name="role_id" class="form-select"><option value="">Non</option><% roles.forEach(r => { if(r.name!=='@everyone'){ %><option value="<%= r.id %>">@<%= r.name %></option><% }}) %></select></div><div class="col-md-2"><label>Min</label><input type="number" name="interval" class="form-control" required></div><div class="col-md-3"><label>Msg</label><input name="message" class="form-control" required></div><div class="col-md-1"><button class="btn btn-primary">+</button></div></form></div><div class="config-box"><table class="table"><% timers.forEach(t => { %><tr><td>#<%= (channels.get(t.channel_id)||{}).name %></td><td><% if(t.role_id){ %>@<%= (roles.get(t.role_id)||{}).name %><% } %></td><td><%= t.interval_minutes %>m</td><td><%= t.message %></td><td><form action="/settings/<%= guild.id %>/timers/delete" method="POST"><input type="hidden" name="id" value="<%= t.id %>"><button class="btn btn-danger btn-sm">X</button></form></td></tr><% }) %></table></div></div>
-            <div id="reactionroles" class="module-section"><h2>Réactions</h2><div class="config-box"><form action="/settings/<%= guild.id %>/rr/add" method="POST" class="row g-2"><div class="col-md-3"><label>Salon</label><select name="channel_id" class="form-select"><% channels.forEach(c => { if(c.type===0){ %><option value="<%= c.id %>">#<%= c.name %></option><% }}) %></select></div><div class="col-md-3"><label>ID Msg</label><input name="message_id" class="form-control"></div><div class="col-md-2"><label>Emoji</label><input name="emoji" class="form-control"></div><div class="col-md-2"><label>Rôle</label><select name="role_id" class="form-select"><% roles.forEach(r => { if(!r.managed){ %><option value="<%= r.id %>">@<%= r.name %></option><% }}) %></select></div><div class="col-md-2"><button class="btn btn-success w-100">Ajouter</button></div></form></div><div class="config-box"><table class="table"><% reactionRoles.forEach(rr => { %><tr><td>#<%= (channels.get(rr.channel_id)||{}).name %></td><td><%= rr.emoji %></td><td><%= (roles.get(rr.role_id)||{}).name %></td><td><form action="/settings/<%= guild.id %>/rr/delete" method="POST"><input type="hidden" name="id" value="<%= rr.id %>"><button class="btn btn-danger btn-sm">X</button></form></td></tr><% }) %></table></div></div>
-            <div id="levels" class="module-section"><h2>Niveaux</h2><div class="config-box"><label>Message</label><input name="level_up_message" class="form-control" value="<%= settings.level_up_message %>"></div></div>
-            <div id="customcmds" class="module-section"><h2>Commandes</h2><div class="config-box"><form action="/settings/<%= guild.id %>/commands/add" method="POST" class="row g-2"><div class="col-md-4"><input name="trigger" class="form-control" placeholder="!test"></div><div class="col-md-6"><input name="response" class="form-control" placeholder="Réponse..."></div><div class="col-md-2"><button class="btn btn-primary w-100">+</button></div></form></div><div class="config-box"><table class="table"><% customCommands.forEach(c => { %><tr><td><%= c.trigger_word %></td><td><%= c.response_text %></td><td><form action="/settings/<%= guild.id %>/commands/delete" method="POST"><input type="hidden" name="command_id" value="<%= c.id %>"><button class="btn btn-danger btn-sm">X</button></form></td></tr><% }) %></table></div></div>
-
-            <div class="save-bar" id="saveBar">
-                <span class="fw-bold" style="color: #ff9aa2;">Modifications en attente...</span>
-                <button type="button" class="btn btn-light btn-sm ms-3" onclick="window.location.reload()">Annuler</button>
-                <button type="submit" class="btn btn-danger btn-sm px-4 ms-2" style="border-radius: 20px;">Enregistrer</button>
+        <div id="timers_actions" class="module-sub-section" style="display:none;">
+            <div class="config-box">
+                <form action="/settings/<%= guild.id %>/timers/add" method="POST">
+                    <div class="row g-3 align-items-end">
+                        <div class="col-md-3"><label class="form-label">Salon</label><select name="channel_id" class="form-select"><% channels.forEach(c => { if(c.type===0){ %><option value="<%= c.id %>">#<%= c.name %></option><% }}) %></select></div>
+                        <div class="col-md-3"><label class="form-label">Ping Rôle</label><select name="role_id" class="form-select"><option value="">Aucun</option><% roles.forEach(r => { if(r.name!=='@everyone'){ %><option value="<%= r.id %>">@<%= r.name %></option><% }}) %></select></div>
+                        <div class="col-md-2"><label class="form-label">Min</label><input type="number" name="interval" class="form-control" placeholder="60" required></div>
+                        <div class="col-md-4">
+                            <label class="form-label">Message</label>
+                            <div class="input-group">
+                                <input type="text" name="message" class="form-control" required>
+                                <button class="btn btn-primary">Ajouter</button>
+                            </div>
+                        </div>
+                    </div>
+                </form>
             </div>
-        </form>
+            <div class="config-box mt-3">
+                <table class="table">
+                    <thead><tr><th>Salon</th><th>Rôle</th><th>Freq.</th><th>Message</th><th>Action</th></tr></thead>
+                    <tbody>
+                        <% timers.forEach(t => { %>
+                            <tr>
+                                <td>#<%= (channels.get(t.channel_id)||{}).name %></td>
+                                <td><% if(t.role_id){ %><span class="badge bg-warning text-dark">@<%= (roles.get(t.role_id)||{}).name %></span><% } else { %>-<% } %></td>
+                                <td><%= t.interval_minutes %>m</td>
+                                <td><%= t.message %></td>
+                                <td>
+                                    <form action="/settings/<%= guild.id %>/timers/delete" method="POST">
+                                        <input type="hidden" name="id" value="<%= t.id %>">
+                                        <button class="btn btn-danger btn-sm">X</button>
+                                    </form>
+                                </td>
+                            </tr>
+                        <% }) %>
+                    </tbody>
+                </table>
+            </div>
+        </div>
 
-        <form id="ecoForm" action="/settings/<%= guild.id %>/economy/update" method="POST"></form>
+        <div id="rr_actions" class="module-sub-section" style="display:none;">
+            <div class="config-box">
+                <form action="/settings/<%= guild.id %>/rr/add" method="POST" class="row g-2 align-items-end">
+                    <div class="col-md-3"><label class="form-label">Salon</label><select name="channel_id" class="form-select"><% channels.forEach(c => { if(c.type===0){ %><option value="<%= c.id %>">#<%= c.name %></option><% }}) %></select></div>
+                    <div class="col-md-3"><label class="form-label">ID Message</label><input type="text" name="message_id" class="form-control" required></div>
+                    <div class="col-md-2"><label class="form-label">Emoji</label><input type="text" name="emoji" class="form-control" required></div>
+                    <div class="col-md-2"><label class="form-label">Rôle</label><select name="role_id" class="form-select"><% roles.forEach(r => { if(!r.managed && r.name!=='@everyone'){ %><option value="<%= r.id %>">@<%= r.name %></option><% }}) %></select></div>
+                    <div class="col-md-2"><button class="btn btn-success w-100">Ajouter</button></div>
+                </form>
+            </div>
+            <div class="config-box mt-3">
+                <table class="table">
+                    <% reactionRoles.forEach(rr => { %>
+                        <tr>
+                            <td>#<%= (channels.get(rr.channel_id)||{}).name %></td>
+                            <td><%= rr.emoji %></td>
+                            <td><%= (roles.get(rr.role_id)||{}).name %></td>
+                            <td>
+                                <form action="/settings/<%= guild.id %>/rr/delete" method="POST">
+                                    <input type="hidden" name="id" value="<%= rr.id %>">
+                                    <button class="btn btn-danger btn-sm">X</button>
+                                </form>
+                            </td>
+                        </tr>
+                    <% }) %>
+                </table>
+            </div>
+        </div>
+
+        <div id="economy_actions" class="module-sub-section" style="display:none;">
+            <div class="config-box">
+                <h5>Top 5 Richesse (Données Serveur)</h5>
+                <table class="table">
+                    <% economyTop.forEach((eco, index) => { %>
+                        <tr>
+                            <td width="50">#<%= index+1 %></td>
+                            <td>
+                                <div class="user-cell">
+                                    <img src="<%= eco.avatar %>" class="user-avatar">
+                                    <strong><%= eco.displayName %></strong>
+                                </div>
+                            </td>
+                            <td class="text-end fw-bold text-success"><%= eco.money %> $</td>
+                        </tr>
+                    <% }) %>
+                </table>
+            </div>
+            <div class="config-box">
+                <h5>Gestion Manuelle</h5>
+                <form action="/settings/<%= guild.id %>/economy/update" method="POST">
+                    <div class="row g-2">
+                        <div class="col-md-4"><input type="text" name="user_id" class="form-control" placeholder="ID Utilisateur" required></div>
+                        <div class="col-md-3"><select name="action" class="form-select"><option value="add">Ajouter (+)</option><option value="remove">Retirer (-)</option><option value="set">Définir (=)</option></select></div>
+                        <div class="col-md-3"><input type="number" name="amount" class="form-control" placeholder="Montant" required></div>
+                        <div class="col-md-2"><button class="btn btn-warning w-100">Valider</button></div>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <div id="cmds_actions" class="module-sub-section" style="display:none;">
+            <div class="config-box">
+                <form action="/settings/<%= guild.id %>/commands/add" method="POST" class="row g-2">
+                    <div class="col-md-4"><input name="trigger" class="form-control" placeholder="!commande" required></div>
+                    <div class="col-md-6"><input name="response" class="form-control" placeholder="Réponse du bot..." required></div>
+                    <div class="col-md-2"><button class="btn btn-primary w-100">Créer</button></div>
+                </form>
+            </div>
+            <div class="config-box mt-3">
+                <table class="table">
+                    <% customCommands.forEach(c => { %>
+                        <tr>
+                            <td><%= c.trigger_word %></td>
+                            <td><%= c.response_text %></td>
+                            <td>
+                                <form action="/settings/<%= guild.id %>/commands/delete" method="POST">
+                                    <input type="hidden" name="command_id" value="<%= c.id %>">
+                                    <button class="btn btn-danger btn-sm">X</button>
+                                </form>
+                            </td>
+                        </tr>
+                    <% }) %>
+                </table>
+            </div>
+        </div>
+
     </div>
 </div>
 
 <script>
     const activeTabFromServer = "<%= activeTab %>";
+
     function openTab(id) {
+        // 1. Gérer les sections principales (Checkboxes & Settings)
         document.querySelectorAll('.module-section').forEach(el => el.classList.remove('active'));
         const target = document.getElementById(id);
         if(target) target.classList.add('active');
+
+        // 2. Gérer les sections d'actions séparées (Forms additionnels)
+        // On les cache toutes d'abord
+        document.querySelectorAll('.module-sub-section').forEach(el => el.style.display = 'none');
+        
+        // On affiche celle qui correspond à l'onglet ouvert
+        if(id === 'presence') document.getElementById('presence_actions').style.display = 'block';
+        if(id === 'timers') document.getElementById('timers_actions').style.display = 'block';
+        if(id === 'reactionroles') document.getElementById('rr_actions').style.display = 'block';
+        if(id === 'economy') document.getElementById('economy_actions').style.display = 'block';
+        if(id === 'customcmds') document.getElementById('cmds_actions').style.display = 'block';
+
+        // 3. Gérer la Sidebar
         document.querySelectorAll('.nav-btn').forEach(el => el.classList.remove('active'));
         const btns = document.querySelectorAll('.nav-btn');
-        btns.forEach(btn => { if(btn.innerHTML.includes(id) || (id==='overview' && btn.innerHTML.includes('Accueil'))) btn.classList.add('active'); });
+        btns.forEach(btn => {
+            if(btn.innerHTML.includes(id) || (id==='overview' && btn.innerHTML.includes('Accueil'))) btn.classList.add('active');
+        });
+
+        // 4. Mettre à jour l'input pour la sauvegarde
         document.getElementById('currentTabInput').value = id;
     }
+
+    // Init
     window.onload = () => { openTab(activeTabFromServer); };
+    
+    // Détection changement pour save bar
     document.getElementById('settingsForm').addEventListener('change', () => document.getElementById('saveBar').classList.add('show'));
 </script>
 </body>
