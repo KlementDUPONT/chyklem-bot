@@ -2,12 +2,12 @@ const { GlobalFonts, Canvas, Image, loadImage } = require('@napi-rs/canvas');
 const fs = require('fs');
 const path = require('path');
 
-// CHARGEMENT DE LA POLICE (Vital pour Docker/Coolify)
+// CHARGEMENT POLICE
 const fontPath = path.join(process.cwd(), 'assets', 'font.ttf');
 if (fs.existsSync(fontPath)) {
     GlobalFonts.registerFromPath(fontPath, 'MyCustomFont');
 } else {
-    console.error("[ERREUR] Fichier 'assets/font.ttf' manquant ! Le texte ne s'affichera pas.");
+    console.error("[ERREUR] Fichier 'assets/font.ttf' manquant !");
 }
 
 function applyRoundedCorners(ctx, x, y, width, height, radius) {
@@ -26,13 +26,11 @@ function applyRoundedCorners(ctx, x, y, width, height, radius) {
 }
 
 module.exports = async (member, settings) => {
-    // 1. CHEMINS LOCAUX
+    // 1. CHEMINS
     const localBgPath = path.join(process.cwd(), 'assets', 'banner.png');
 
-    // 2. RÉGLAGES
-    let opacity = settings.welcome_opacity;
-    if (typeof opacity === 'string') opacity = opacity.replace(',', '.');
-    opacity = parseFloat(opacity) || 0.5;
+    // 2. RÉGLAGES FORCÉS (Modifiés selon ta demande)
+    const opacity = 0.5; // On force l'opacité à 0.5 (plus sombre)
 
     const titleText = settings.welcome_title || 'BIENVENUE';
     const colTitle = settings.welcome_title_color || '#ffffff';
@@ -40,25 +38,24 @@ module.exports = async (member, settings) => {
     const colBorder = settings.welcome_border_color || '#ffffff';
     const isCircle = settings.welcome_shape !== 'square';
 
-    // 3. CRÉATION CANVAS
+    // 3. CANVAS
     const canvas = new Canvas(700, 250);
     const ctx = canvas.getContext('2d');
 
-    // FOND IMAGE
+    // FOND
     try {
         if (fs.existsSync(localBgPath)) {
             const bg = await loadImage(localBgPath);
             applyRoundedCorners(ctx, 0, 0, 700, 250, 30);
             ctx.drawImage(bg, 0, 0, 700, 250);
         } else {
-            // Fond rose si image absente
             applyRoundedCorners(ctx, 0, 0, 700, 250, 30);
             ctx.fillStyle = '#ff9aa2';
             ctx.fillRect(0, 0, 700, 250);
         }
     } catch (e) { console.error("Erreur Fond:", e); }
 
-    // OVERLAY SOMBRE
+    // OVERLAY SOMBRE (0.5)
     ctx.save();
     ctx.fillStyle = `rgba(0, 0, 0, ${opacity})`;
     ctx.fillRect(0, 0, 700, 250);
@@ -74,7 +71,7 @@ module.exports = async (member, settings) => {
         if (isCircle) ctx.arc(125, 125, 80, 0, Math.PI * 2, true);
         else {
             const r = 20, x=45, y=45, w=160, h=160;
-            ctx.roundRect(x, y, w, h, r); // Méthode simplifiée si dispo, sinon tracer manuel
+            ctx.roundRect(x, y, w, h, r);
         }
         ctx.closePath();
         ctx.lineWidth = 8;
@@ -85,17 +82,18 @@ module.exports = async (member, settings) => {
         ctx.restore();
     } catch (e) { console.error("Erreur Avatar:", e); }
 
-    // TEXTES (Avec la police chargée)
-    // On utilise 'MyCustomFont' qu'on a enregistré en haut
+    // TEXTES (Tailles réduites)
+    
+    // Titre : 40px -> 32px
     ctx.fillStyle = colTitle;
-    ctx.font = 'bold 40px "MyCustomFont"'; 
+    ctx.font = 'bold 32px "MyCustomFont"'; 
     ctx.fillText(titleText, 250, 110);
 
+    // Pseudo : 60px -> 48px (et redimensionnement auto si trop long)
     ctx.fillStyle = colUser;
     ctx.font = '48px "MyCustomFont"';
     
-    // Auto-Resize du pseudo
-    let fontSize = 60;
+    let fontSize = 48;
     const name = member.displayName.toUpperCase();
     do {
         ctx.font = `${fontSize -= 2}px "MyCustomFont"`;
