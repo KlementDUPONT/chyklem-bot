@@ -137,7 +137,7 @@
             <script>setTimeout(() => document.querySelector('.alert').remove(), 3500);</script>
         <% } %>
 
-        <form action="/settings/<%= guild.id %>" method="POST" id="settingsForm">
+        <form action="/settings/<%= guild.id %>" method="POST" id="settingsForm" enctype="multipart/form-data">
             <input type="hidden" name="current_tab" id="currentTabInput" value="<%= activeTab %>">
 
             <div id="overview" class="module-section">
@@ -199,8 +199,14 @@
                                 <div style="position: absolute; left: 30px; top: 50%; transform: translateY(-50%); width: 80px; height: 80px; border: 4px solid <%= settings.welcome_border_color || '#fff' %>; border-radius: <%= settings.welcome_shape === 'square' ? '10px' : '50%' %>; background: #aaa;"></div>
                             </div>
                             
-                            <label class="form-label">URL Image de Fond</label>
-                            <input type="text" name="welcome_bg" class="form-control mb-3" value="<%= settings.welcome_bg %>" placeholder="https://...">
+                            <label class="form-label">Image de Fond</label>
+                            
+                            <div class="input-group mb-2">
+                                <input type="file" name="welcome_bg_file" class="form-control" accept="image/*">
+                                <label class="input-group-text"><i class="fas fa-upload"></i></label>
+                            </div>
+
+                            <input type="text" name="welcome_bg" class="form-control mb-3" value="<%= settings.welcome_bg %>" placeholder="Ou collez un lien https://...">
 
                             <label class="form-label">Opacité du fond sombre (0 à 1)</label>
                             <input type="number" name="welcome_opacity" class="form-control" step="0.1" min="0" max="1" value="<%= settings.welcome_opacity !== undefined ? settings.welcome_opacity : 0.3 %>">
