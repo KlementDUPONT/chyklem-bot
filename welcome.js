@@ -30,7 +30,7 @@ module.exports = async (member, settings) => {
     const localBgPath = path.join(process.cwd(), 'assets', 'banner.png');
 
     // 2. RÉGLAGES
-    const opacity = 0.5; // On garde l'opacité sombre à 0.5
+    const opacity = 0.5;
 
     const titleText = settings.welcome_title || 'BIENVENUE';
     const colTitle = settings.welcome_title_color || '#ffffff';
@@ -82,18 +82,18 @@ module.exports = async (member, settings) => {
         ctx.restore();
     } catch (e) { console.error("Erreur Avatar:", e); }
 
-    // TEXTES (Encore plus petits)
+    // TEXTES (Tailles MINIATURES pour ne pas cacher le fond)
     
-    // Titre : 26px (Taille encore réduite)
+    // Titre : 20px
     ctx.fillStyle = colTitle;
-    ctx.font = 'bold 26px "MyCustomFont"'; 
+    ctx.font = 'bold 20px "MyCustomFont"'; 
     ctx.fillText(titleText, 250, 110);
 
-    // Pseudo : 40px (Taille encore réduite)
+    // Pseudo : 30px max
     ctx.fillStyle = colUser;
-    ctx.font = '40px "MyCustomFont"';
+    ctx.font = '30px "MyCustomFont"';
     
-    let fontSize = 40;
+    let fontSize = 30;
     const name = member.displayName.toUpperCase();
     do {
         ctx.font = `${fontSize -= 2}px "MyCustomFont"`;
