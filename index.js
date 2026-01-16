@@ -4,23 +4,49 @@ const path = require('path');
 const { Client, Collection, GatewayIntentBits, REST, Routes, Partials, ActivityType, ChannelType, PermissionFlagsBits } = require('discord.js');
 const mysql = require('mysql2/promise');
 
-const BOT_COLOR = '#FFB6C1'; 
+// --- 🎨 LA BASE DE DONNÉES PASTEL ---
+// Une collection de couleurs douces et aléatoires pour le thème Kawaii
+const PASTEL_PALETTE = [
+    '#FFB7B2', // Rose Saumon
+    '#FFDAC1', // Pêche Douce
+    '#E2F0CB', // Vert Citron
+    '#B5EAD7', // Menthe à l'eau
+    '#C7CEEA', // Bleu Lavande
+    '#F8B88B', // Orange Pastel
+    '#FAF884', // Jaune Soleil
+    '#B2CEFE', // Bleu Ciel
+    '#F2A2E8', // Mauve
+    '#FEF9E7', // Crème
+    '#ff9aa2', // Rose Bonbon
+    '#e0f2f1', // Aqua très pâle
+    '#f3e5f5', // Violet très pâle
+    '#fff3e0', // Orange très pâle
+    '#fbe9e7'  // Rouge très pâle
+];
 
 const client = new Client({
     intents: [
         GatewayIntentBits.Guilds,
         GatewayIntentBits.GuildMessages,
         GatewayIntentBits.MessageContent, 
-        GatewayIntentBits.GuildMembers,   // CRUCIAL pour les pseudos (DisplayNames)
+        GatewayIntentBits.GuildMembers,
         GatewayIntentBits.GuildPresences, 
-        GatewayIntentBits.GuildVoiceStates, // CRUCIAL pour les vocaux
-        GatewayIntentBits.GuildMessageReactions // CRUCIAL pour les réactions
+        GatewayIntentBits.GuildVoiceStates,
+        GatewayIntentBits.GuildMessageReactions
     ],
     partials: [Partials.Message, Partials.Channel, Partials.Reaction]
 });
 
 client.commands = new Collection();
-client.color = BOT_COLOR;
+
+// --- FONCTION MAGIQUE DE COULEUR ---
+// Utilise client.pickColor() dans tes embeds pour avoir une couleur aléatoire !
+client.pickColor = () => {
+    return PASTEL_PALETTE[Math.floor(Math.random() * PASTEL_PALETTE.length)];
+};
+
+// Couleur par défaut (change à chaque redémarrage pour le fun)
+client.color = client.pickColor();
 
 // ============================================================
 // 1. CHARGEMENT DYNAMIQUE
@@ -59,7 +85,6 @@ if (fs.existsSync(eventsPath)) {
 // ============================================================
 (async () => {
     try {
-        // --- A. Connexion ---
         client.db = mysql.createPool({
             uri: process.env.MYSQL_URL,
             waitForConnections: true, connectionLimit: 10, queueLimit: 0, enableKeepAlive: true, keepAliveInitialDelay: 0
@@ -69,7 +94,7 @@ if (fs.existsSync(eventsPath)) {
         console.log('💾 Base de données connectée.');
         setInterval(async () => { try { await client.db.query('SELECT 1'); } catch (err) {} }, 60000);
 
-        // --- B. Tables SQL ---
+        // --- TABLES SQL ---
         const tables = [
             `CREATE TABLE IF NOT EXISTS levels (user_id VARCHAR(32), guild_id VARCHAR(32), xp INT DEFAULT 0, level INT DEFAULT 0, PRIMARY KEY (user_id, guild_id))`,
             `CREATE TABLE IF NOT EXISTS level_rewards (guild_id VARCHAR(32), level INT, role_id VARCHAR(32), PRIMARY KEY (guild_id, level))`,
@@ -84,7 +109,7 @@ if (fs.existsSync(eventsPath)) {
         ];
         for (const sql of tables) await client.db.execute(sql);
 
-        // --- C. Auto-Réparation (Migrations) ---
+        // --- MIGRATIONS AUTO (Auto-Repair) ---
         const requiredColumns = [
             "ADD COLUMN module_welcome BOOLEAN DEFAULT TRUE", "ADD COLUMN module_levels BOOLEAN DEFAULT TRUE", "ADD COLUMN module_economy BOOLEAN DEFAULT TRUE",
             "ADD COLUMN module_moderation BOOLEAN DEFAULT TRUE", "ADD COLUMN module_security BOOLEAN DEFAULT FALSE", "ADD COLUMN module_social BOOLEAN DEFAULT TRUE",
@@ -103,13 +128,10 @@ if (fs.existsSync(eventsPath)) {
         for (const colSql of requiredColumns) {
             try { await client.db.execute(`ALTER TABLE guild_settings ${colSql}`); } catch (e) { if (e.errno !== 1060) {} }
         }
-        // Migration spéciale pour Timers (role_id)
         try { await client.db.execute("ALTER TABLE timers ADD COLUMN role_id VARCHAR(32) DEFAULT NULL"); } catch(e){}
 
-        // --- D. Connexion Discord ---
         await client.login(process.env.DISCORD_TOKEN);
         
-        // Enregistrement Slash Commands
         const commandsData = [];
         client.commands.forEach(cmd => commandsData.push(cmd.data.toJSON()));
         const rest = new REST().setToken(process.env.DISCORD_TOKEN);
@@ -117,20 +139,19 @@ if (fs.existsSync(eventsPath)) {
         
         console.log(`✨ ${client.user.tag} est en ligne !`);
 
-        // --- E. Status Rotatif ---
+        // Status Rotatif
         const activities = [
             { name: 'le Dashboard 🌸', type: ActivityType.Watching },
             { name: 'les membres 👋', type: ActivityType.Listening },
             { name: '/help | Kawaii Bot', type: ActivityType.Playing },
-            { name: 'ta musique préférée 🎶', type: ActivityType.Listening }
+            { name: 'des couleurs pastels 🎨', type: ActivityType.Watching }
         ];
         let activityIndex = 0;
         setInterval(() => {
             client.user.setActivity(activities[activityIndex].name, { type: activities[activityIndex].type });
             activityIndex = (activityIndex + 1) % activities.length;
-        }, 10000); // Change toutes les 10s
+        }, 10000);
 
-        // --- F. Lancement Services ---
         startBackgroundServices(client);
         require('./website/server')(client);
 
@@ -149,9 +170,7 @@ client.on('voiceStateUpdate', async (oldState, newState) => {
         if (!settings.length || !settings[0].module_tempvoice) return;
         const conf = settings[0];
 
-        // CRÉATION
         if (newState.channelId === conf.tempvoice_channel_id) {
-            // On force le fetch pour être sûr d'avoir le "Display Name" (Surnom serveur)
             let member = newState.member;
             if (!member) member = await guild.members.fetch(newState.id).catch(() => null);
             const name = member ? member.displayName : "Inconnu";
@@ -165,7 +184,6 @@ client.on('voiceStateUpdate', async (oldState, newState) => {
             await newState.setChannel(channel);
         }
 
-        // SUPPRESSION
         if (oldState.channelId && oldState.channelId !== conf.tempvoice_channel_id) {
             const channel = oldState.channel;
             if (channel && channel.members.size === 0 && channel.parentId === conf.tempvoice_category_id) {
@@ -187,7 +205,6 @@ function startBackgroundServices(client) {
             for (const timer of timers) {
                 const [s] = await client.db.query('SELECT module_timers FROM guild_settings WHERE guild_id = ?', [timer.guild_id]);
                 if (!s.length || !s[0].module_timers) continue;
-                
                 if (now - timer.last_sent >= timer.interval_minutes * 60000) {
                     const guild = client.guilds.cache.get(timer.guild_id);
                     if (guild) {
@@ -203,7 +220,7 @@ function startBackgroundServices(client) {
         } catch (e) {}
     }, 60000);
 
-    // Anniversaires (Check à 08h00)
+    // Anniversaires
     let lastCheckDate = "";
     setInterval(async () => {
         try {
