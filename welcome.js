@@ -82,18 +82,18 @@ module.exports = async (member, settings) => {
         ctx.restore();
     } catch (e) { console.error("Erreur Avatar:", e); }
 
-    // TEXTES (Tailles MINIATURES pour ne pas cacher le fond)
+    // TEXTES (Titre > Pseudo)
     
-    // Titre : 20px
+    // Titre : GRAND (50px)
     ctx.fillStyle = colTitle;
-    ctx.font = 'bold 20px "MyCustomFont"'; 
+    ctx.font = 'bold 50px "MyCustomFont"'; 
     ctx.fillText(titleText, 250, 110);
 
-    // Pseudo : 30px max
+    // Pseudo : PLUS PETIT (32px max)
     ctx.fillStyle = colUser;
-    ctx.font = '30px "MyCustomFont"';
+    ctx.font = '32px "MyCustomFont"';
     
-    let fontSize = 30;
+    let fontSize = 32;
     const name = member.displayName.toUpperCase();
     do {
         ctx.font = `${fontSize -= 2}px "MyCustomFont"`;
