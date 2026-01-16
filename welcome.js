@@ -32,7 +32,7 @@ module.exports = async (member, settings) => {
     // 2. RÉGLAGES
     let opacity = settings.welcome_opacity;
     if (typeof opacity === 'string') opacity = opacity.replace(',', '.');
-    opacity = parseFloat(opacity) || 0.3;
+    opacity = parseFloat(opacity) || 0.5;
 
     const titleText = settings.welcome_title || 'BIENVENUE';
     const colTitle = settings.welcome_title_color || '#ffffff';
@@ -92,7 +92,7 @@ module.exports = async (member, settings) => {
     ctx.fillText(titleText, 250, 110);
 
     ctx.fillStyle = colUser;
-    ctx.font = '60px "MyCustomFont"';
+    ctx.font = '48px "MyCustomFont"';
     
     // Auto-Resize du pseudo
     let fontSize = 60;
