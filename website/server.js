@@ -6,32 +6,18 @@ const path = require('path');
 const multer = require('multer');
 const fs = require('fs');
 
-// --- 1. CONFIGURATION UPLOAD ---
-// Création automatique du dossier de stockage
+// --- CONFIGURATION UPLOAD ---
 const uploadDir = path.join(__dirname, '../public/uploads');
-if (!fs.existsSync(uploadDir)) {
-    fs.mkdirSync(uploadDir, { recursive: true });
-}
+if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
 
-// Configuration de stockage Multer
 const storage = multer.diskStorage({
-    destination: (req, file, cb) => {
-        cb(null, uploadDir);
-    },
+    destination: (req, file, cb) => cb(null, uploadDir),
     filename: (req, file, cb) => {
-        // On renomme pour éviter les doublons : timestamp-nomdufichier
         const uniqueName = Date.now() + '-' + file.originalname.replace(/[^a-zA-Z0-9.]/g, "_");
         cb(null, uniqueName);
     }
 });
-
-// Filtre (Images seulement)
-const fileFilter = (req, file, cb) => {
-    if (file.mimetype.startsWith('image/')) cb(null, true);
-    else cb(new Error('Le fichier doit être une image'), false);
-};
-
-const upload = multer({ storage: storage, fileFilter: fileFilter });
+const upload = multer({ storage: storage });
 
 module.exports = (client) => {
     const app = express();
@@ -48,16 +34,13 @@ module.exports = (client) => {
 
     app.set('view engine', 'ejs');
     app.set('views', path.join(__dirname, 'views'));
-    
-    // IMPORTANT : Servir le dossier public pour que les images soient accessibles
     app.use(express.static(path.join(__dirname, '../public'))); 
-    
     app.use(express.urlencoded({ extended: true }));
     app.use(session({ secret: 'kawaai-secret', resave: false, saveUninitialized: false }));
     app.use(passport.initialize());
     app.use(passport.session());
 
-    // --- ROUTES DE BASE ---
+    // --- ROUTES ---
     app.get('/', (req, res) => res.render('index', { user: req.user, bot: client.user }));
     app.get('/login', passport.authenticate('discord'));
     app.get('/auth/discord/callback', passport.authenticate('discord', { failureRedirect: '/' }), (req, res) => res.redirect('/dashboard'));
@@ -70,7 +53,7 @@ module.exports = (client) => {
         res.render('dashboard', { user: req.user, bot: client.user, guilds: finalGuilds });
     });
 
-    // Fonctions utilitaires
+    // Helper pour enrichir les données (leaderboard etc)
     async function enrichData(guild, data, idField) {
         return await Promise.all(data.map(async (item) => {
             try {
@@ -84,13 +67,14 @@ module.exports = (client) => {
         }));
     }
 
-    // --- PAGE SETTINGS ---
+    // PAGE PARAMÈTRES
     app.get('/settings/:guildId', async (req, res) => {
         if (!req.user) return res.redirect('/login');
         const guildId = req.params.guildId;
         const guild = client.guilds.cache.get(guildId);
         if (!guild) return res.redirect('/dashboard');
 
+        // Récupération de TOUTES les tables
         const [settings] = await client.db.query('SELECT * FROM guild_settings WHERE guild_id = ?', [guildId]);
         const [customCommands] = await client.db.query('SELECT * FROM custom_commands WHERE guild_id = ?', [guildId]);
         const [timers] = await client.db.query('SELECT * FROM timers WHERE guild_id = ?', [guildId]);
@@ -114,40 +98,61 @@ module.exports = (client) => {
         });
     });
 
-    // --- SAUVEGARDE (AVEC GESTION FICHIER) ---
+    // --- SAUVEGARDE GÉNÉRALE (AVEC WELCOME PRO) ---
     app.post('/settings/:guildId', upload.single('welcome_bg_file'), async (req, res) => {
         if (!req.user) return res.redirect('/login');
         const d = req.body;
-        const mods = {
-            welcome: d.module_welcome === 'on', levels: d.module_levels === 'on', economy: d.module_economy === 'on',
-            moderation: d.module_moderation === 'on', social: d.module_social === 'on', customcmds: d.module_customcmds === 'on',
-            timers: d.module_timers === 'on', tempvoice: d.module_tempvoice === 'on', reactionroles: d.module_reactionroles === 'on'
-        };
-
-        // 2. Logique Image : Fichier ou Lien ?
-        let finalBg = d.welcome_bg; // Par défaut, on prend le lien texte
         
+        // 1. Gestion Image (Priorité : Upload > Lien > Existant)
+        let finalBg = d.welcome_bg; 
         if (req.file) {
-            // Si un fichier est uploadé, on remplace le lien par le chemin local
             finalBg = `/uploads/${req.file.filename}`;
-            console.log(`[UPLOAD] Nouvelle image : ${finalBg}`);
         }
+        // Si finalBg est vide, on met NULL (le code utilisera l'image locale par défaut)
+        if (!finalBg || finalBg.trim() === '') finalBg = null;
+
+        // 2. Nettoyage des données numériques (éviter les NaN)
+        const welcome_opacity = parseFloat(d.welcome_opacity) || 0.5;
+        
+        // Positions & Tailles
+        const t_x = parseInt(d.welcome_title_x) || 230;
+        const t_y = parseInt(d.welcome_title_y) || 110;
+        const t_s = parseInt(d.welcome_title_size) || 50;
+        
+        const u_x = parseInt(d.welcome_user_x) || 230;
+        const u_y = parseInt(d.welcome_user_y) || 175;
+        const u_s = parseInt(d.welcome_user_size) || 32;
+
+        const a_x = parseInt(d.welcome_avatar_x) || 45;
+        const a_y = parseInt(d.welcome_avatar_y) || 45;
+        const a_s = parseInt(d.welcome_avatar_size) || 160;
 
         try {
             await client.db.query(`
                 UPDATE guild_settings SET 
                 module_welcome=?, module_levels=?, module_economy=?, module_moderation=?, module_social=?, module_customcmds=?, module_timers=?, module_tempvoice=?, module_reactionroles=?, 
-                welcome_channel_id=?, welcome_bg=?, 
-                welcome_title=?, welcome_title_color=?, welcome_user_color=?, welcome_border_color=?, welcome_opacity=?, welcome_shape=?, 
-                welcome_message=?, log_channel_id=?, autorole_id=?, level_up_message=?, automod_enabled=?, automod_words=?, tempvoice_channel_id=?, tempvoice_category_id=? 
+                
+                welcome_channel_id=?, welcome_bg=?, welcome_opacity=?, welcome_align=?,
+                welcome_title=?, welcome_title_color=?, welcome_title_size=?, welcome_title_x=?, welcome_title_y=?,
+                welcome_user_color=?, welcome_user_size=?, welcome_user_x=?, welcome_user_y=?,
+                welcome_avatar_x=?, welcome_avatar_y=?, welcome_avatar_size=?, welcome_shape=?, welcome_border_color=?,
+                welcome_message=?, autorole_id=?, 
+                
+                log_channel_id=?, level_up_message=?, automod_enabled=?, automod_words=?, tempvoice_channel_id=?, tempvoice_category_id=? 
                 WHERE guild_id=?`, 
             [
-                mods.welcome, mods.levels, mods.economy, mods.moderation, mods.social, mods.customcmds, mods.timers, mods.tempvoice, mods.reactionroles, 
-                d.welcome_channel_id||null, finalBg||'', 
-                d.welcome_title||'BIENVENUE', d.welcome_title_color||'#ffffff', d.welcome_user_color||'#ffffff', d.welcome_border_color||'#ffffff', d.welcome_opacity||0.3, d.welcome_shape||'circle',
-                d.welcome_message, d.log_channel_id||null, d.autorole_id||null, d.level_up_message, d.automod_enabled==='on', d.automod_words, d.tempvoice_channel_id||null, d.tempvoice_category_id||null, 
+                d.module_welcome==='on', d.module_levels==='on', d.module_economy==='on', d.module_moderation==='on', d.module_social==='on', d.module_customcmds==='on', d.module_timers==='on', d.module_tempvoice==='on', d.module_reactionroles==='on', 
+                
+                d.welcome_channel_id||null, finalBg, welcome_opacity, d.welcome_align||'left',
+                d.welcome_title, d.welcome_title_color, t_s, t_x, t_y,
+                d.welcome_user_color, u_s, u_x, u_y,
+                a_x, a_y, a_s, d.welcome_shape||'circle', d.welcome_border_color,
+                d.welcome_message, d.autorole_id||null, 
+                
+                d.log_channel_id||null, d.level_up_message, d.automod_enabled==='on', d.automod_words, d.tempvoice_channel_id||null, d.tempvoice_category_id||null, 
                 req.params.guildId
             ]);
+            
             res.redirect(`/settings/${req.params.guildId}?success=true&tab=${d.current_tab||'overview'}`);
         } catch (error) { 
             console.error(error);
@@ -155,7 +160,7 @@ module.exports = (client) => {
         }
     });
 
-    // --- AUTRES POSTS ---
+    // --- AUTRES POSTS (Activités, Timers, etc.) ---
     app.post('/settings/:guildId/presence/add', async (req, res) => { await client.db.query('INSERT INTO bot_activities (type, name) VALUES (?, ?)', [req.body.type, req.body.name]); res.redirect(`/settings/${req.params.guildId}?tab=presence`); });
     app.post('/settings/:guildId/presence/delete', async (req, res) => { await client.db.query('DELETE FROM bot_activities WHERE id = ?', [req.body.id]); res.redirect(`/settings/${req.params.guildId}?tab=presence`); });
     app.post('/settings/:guildId/presence/config', async (req, res) => { const i = parseInt(req.body.interval); if (i >= 5) await client.db.query("INSERT INTO bot_settings (setting_key, setting_value) VALUES ('presence_interval', ?) ON DUPLICATE KEY UPDATE setting_value = ?", [i, i]); res.redirect(`/settings/${req.params.guildId}?tab=presence`); });

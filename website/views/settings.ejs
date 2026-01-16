@@ -37,6 +37,7 @@
     </style>
 </head>
 <body>
+
 <div class="wrapper">
     <div class="sidebar">
         <div class="server-header"><%= guild.name %></div>
@@ -84,49 +85,70 @@
             </div>
 
             <div id="welcome" class="module-section">
-                <h2>Studio Bienvenue 🎨</h2>
+                <h2>Studio Bienvenue Pro 🎨</h2>
+                <div class="alert alert-info border-0 shadow-sm"><i class="fas fa-ruler-combined me-2"></i> L'image fait 700 pixels de large sur 250 pixels de haut. Utilisez ces valeurs pour placer vos éléments.</div>
+                
                 <div class="row">
                     <div class="col-lg-6">
-                        <div class="config-box h-100">
-                            <h5>Aperçu</h5>
-                            <div class="position-relative mb-3 text-center text-white" style="height: 180px; border-radius: 20px; overflow: hidden; background: #333;">
-                                <div style="position:absolute; top:0; left:0; width:100%; height:100%; background: linear-gradient(45deg, #ff9aa2, #b5ead7);"></div>
-                                <div style="position:absolute; top:0; left:0; width:100%; height:100%; background: rgba(0,0,0, <%= settings.welcome_opacity !== undefined ? settings.welcome_opacity : 0.3 %>);"></div>
-                                <div style="position:absolute; top:50%; left:50%; transform: translate(-50%, -50%); width: 100%;">
-                                    <h2 style="color: <%= settings.welcome_title_color || '#fff' %>; font-size: 24px; margin: 0; font-weight: bold;"><%= settings.welcome_title || 'BIENVENUE' %></h2>
-                                    <h1 style="color: <%= settings.welcome_user_color || '#fff' %>; font-size: 30px; margin: 5px 0;">USER</h1>
-                                </div>
-                            </div>
-                            
-                            <div class="alert alert-primary">
-                                <i class="fas fa-info-circle me-2"></i> L'image utilisée est le fichier <strong>banner.png</strong> stocké dans le bot.
-                            </div>
+                        <div class="config-box mb-3">
+                            <h5>1. Fond & Image</h5>
+                            <label class="form-label">Image de Fond</label>
+                            <input type="file" name="welcome_bg_file" class="form-control mb-2" accept="image/*">
+                            <input type="text" name="welcome_bg" class="form-control mb-2" value="<%= settings.welcome_bg %>" placeholder="Ou lien https://...">
+                            <div class="form-text">Laisser vide pour utiliser 'banner.png' locale.</div>
+                            <hr>
+                            <label class="form-label">Opacité du Voile Noir (0 à 1)</label>
+                            <input type="number" name="welcome_opacity" class="form-control" step="0.1" min="0" max="1" value="<%= settings.welcome_opacity %>">
+                            <label class="form-label mt-2">Alignement Texte</label>
+                            <select name="welcome_align" class="form-select">
+                                <option value="left" <%= settings.welcome_align==='left'?'selected':'' %>>Gauche</option>
+                                <option value="center" <%= settings.welcome_align==='center'?'selected':'' %>>Centré</option>
+                                <option value="right" <%= settings.welcome_align==='right'?'selected':'' %>>Droite</option>
+                            </select>
+                        </div>
 
-                            <label class="form-label">Opacité (0.0 à 1.0)</label>
-                            <input type="number" name="welcome_opacity" class="form-control" step="0.1" min="0" max="1" value="<%= settings.welcome_opacity !== undefined ? settings.welcome_opacity : 0.3 %>">
+                        <div class="config-box">
+                            <h5>2. Avatar</h5>
+                            <div class="row g-2">
+                                <div class="col-6"><label>Pos X</label><input type="number" name="welcome_avatar_x" class="form-control" value="<%= settings.welcome_avatar_x %>"></div>
+                                <div class="col-6"><label>Pos Y</label><input type="number" name="welcome_avatar_y" class="form-control" value="<%= settings.welcome_avatar_y %>"></div>
+                                <div class="col-6"><label>Taille</label><input type="number" name="welcome_avatar_size" class="form-control" value="<%= settings.welcome_avatar_size %>"></div>
+                                <div class="col-6"><label>Forme</label>
+                                    <select name="welcome_shape" class="form-select">
+                                        <option value="circle" <%= settings.welcome_shape==='circle'?'selected':'' %>>Rond</option>
+                                        <option value="square" <%= settings.welcome_shape==='square'?'selected':'' %>>Carré</option>
+                                    </select>
+                                </div>
+                                <div class="col-12"><label>Couleur Bordure</label><input type="color" name="welcome_border_color" class="form-control w-100" value="<%= settings.welcome_border_color %>"></div>
+                            </div>
                         </div>
                     </div>
 
                     <div class="col-lg-6">
-                        <div class="config-box h-100">
-                            <h5>Textes & Couleurs</h5>
-                            <div class="row g-2 mb-3">
-                                <div class="col-8"><label class="form-label">Titre</label><input type="text" name="welcome_title" class="form-control" value="<%= settings.welcome_title || 'BIENVENUE' %>"></div>
-                                <div class="col-4"><label class="form-label">Couleur</label><input type="color" name="welcome_title_color" class="form-control form-control-color w-100" value="<%= settings.welcome_title_color || '#ffffff' %>"></div>
+                        <div class="config-box mb-3">
+                            <h5>3. Configuration Textes</h5>
+                            <div class="card p-3 mb-3 border-0 bg-light">
+                                <h6 class="fw-bold text-primary">Titre Principal</h6>
+                                <input type="text" name="welcome_title" class="form-control mb-2 fw-bold" value="<%= settings.welcome_title %>">
+                                <div class="row g-2">
+                                    <div class="col-4"><label>Pos X</label><input type="number" name="welcome_title_x" class="form-control" value="<%= settings.welcome_title_x %>"></div>
+                                    <div class="col-4"><label>Pos Y</label><input type="number" name="welcome_title_y" class="form-control" value="<%= settings.welcome_title_y %>"></div>
+                                    <div class="col-4"><label>Taille</label><input type="number" name="welcome_title_size" class="form-control" value="<%= settings.welcome_title_size %>"></div>
+                                    <div class="col-12"><label>Couleur</label><input type="color" name="welcome_title_color" class="form-control w-100" value="<%= settings.welcome_title_color %>"></div>
+                                </div>
                             </div>
-                            <div class="row g-2 mb-3">
-                                <div class="col-8"><label class="form-label">Couleur Pseudo</label><input type="color" name="welcome_user_color" class="form-control form-control-color w-100" value="<%= settings.welcome_user_color || '#ffffff' %>"></div>
-                                <div class="col-4"><label class="form-label">Bordure</label><input type="color" name="welcome_border_color" class="form-control form-control-color w-100" value="<%= settings.welcome_border_color || '#ffffff' %>"></div>
-                            </div>
-                            <label class="form-label">Forme Avatar</label>
-                            <select name="welcome_shape" class="form-select">
-                                <option value="circle" <%= settings.welcome_shape === 'circle' ? 'selected' : '' %>>Rond</option>
-                                <option value="square" <%= settings.welcome_shape === 'square' ? 'selected' : '' %>>Carré</option>
-                            </select>
-                        </div>
-                    </div>
 
-                    <div class="col-12 mt-4">
+                            <div class="card p-3 border-0 bg-light">
+                                <h6 class="fw-bold text-success">Pseudo Membre</h6>
+                                <div class="row g-2">
+                                    <div class="col-4"><label>Pos X</label><input type="number" name="welcome_user_x" class="form-control" value="<%= settings.welcome_user_x %>"></div>
+                                    <div class="col-4"><label>Pos Y</label><input type="number" name="welcome_user_y" class="form-control" value="<%= settings.welcome_user_y %>"></div>
+                                    <div class="col-4"><label>Taille Base</label><input type="number" name="welcome_user_size" class="form-control" value="<%= settings.welcome_user_size %>"></div>
+                                    <div class="col-12"><label>Couleur</label><input type="color" name="welcome_user_color" class="form-control w-100" value="<%= settings.welcome_user_color %>"></div>
+                                </div>
+                            </div>
+                        </div>
+
                         <div class="config-box">
                             <div class="row g-3">
                                 <div class="col-md-6">
@@ -146,7 +168,7 @@
                                     </select>
                                 </div>
                                 <div class="col-12">
-                                    <label class="form-label">Message texte</label>
+                                    <label class="form-label">Message texte (Discord)</label>
                                     <input type="text" name="welcome_message" class="form-control" value="<%= settings.welcome_message %>">
                                 </div>
                             </div>
