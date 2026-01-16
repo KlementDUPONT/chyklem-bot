@@ -82,15 +82,16 @@ module.exports = async (member, settings) => {
         ctx.restore();
     } catch (e) { console.error("Erreur Avatar:", e); }
 
-    // TEXTES
-    // ALIGNEMENT GAUCHE (Important !)
+    // --- TEXTES (ALIGNÉS À GAUCHE) ---
+    
+    // IMPORTANT : On force l'alignement à gauche
     ctx.textAlign = 'left';
 
     // Titre : GRAND (50px)
     ctx.fillStyle = colTitle;
     ctx.font = 'bold 50px "MyCustomFont"'; 
-    // X passé de 250 à 230 pour coller à gauche
-    ctx.fillText(titleText, 230, 110); 
+    // On démarre à X = 220 (juste à droite de l'avatar)
+    ctx.fillText(titleText, 220, 110); 
 
     // Pseudo : PLUS PETIT (32px max)
     ctx.fillStyle = colUser;
@@ -98,13 +99,13 @@ module.exports = async (member, settings) => {
     
     let fontSize = 32;
     const name = member.displayName.toUpperCase();
-    // Ajustement de la largeur max disponible (450px)
+    // Largeur max augmentée car on a plus de place à droite
     do {
         ctx.font = `${fontSize -= 2}px "MyCustomFont"`;
-    } while (ctx.measureText(name).width > 450 && fontSize > 10);
+    } while (ctx.measureText(name).width > 460 && fontSize > 10);
     
-    // X passé de 250 à 230 pour coller à gauche
-    ctx.fillText(name, 230, 175);
+    // On démarre aussi à X = 220
+    ctx.fillText(name, 220, 175);
 
     return canvas.toBuffer('image/png');
 };
