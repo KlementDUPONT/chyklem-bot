@@ -2,7 +2,6 @@ const { GlobalFonts, Canvas, Image, SKRSContext2D, loadImage } = require('@napi-
 const fs = require('fs');
 const path = require('path');
 
-// Fonction pour les arrondis
 function applyRoundedCorners(ctx, x, y, width, height, radius) {
     ctx.beginPath();
     ctx.moveTo(x + radius, y);
@@ -19,72 +18,62 @@ function applyRoundedCorners(ctx, x, y, width, height, radius) {
 }
 
 module.exports = async (member, settings) => {
-    console.log("--- [DEBUG] GÉNÉRATION BIENVENUE ---");
+    // --- 1. NETTOYAGE DES DONNÉES (ANTI-CRASH) ---
     
-    // 1. Récupération & Nettoyage URL
-    let bgUrl = settings.welcome_bg;
-    
-    // Gestion Fichier Local (Upload)
-    if (bgUrl && bgUrl.startsWith('/uploads/')) {
-        // process.cwd() = La racine du bot (/app)
-        // On construit : /app/public/uploads/nomdufichier.png
-        const realPath = path.join(process.cwd(), 'public', bgUrl);
-        console.log(`[DEBUG] Mode Fichier Local détecté.`);
-        console.log(`[DEBUG] Chemin DB: ${bgUrl}`);
-        console.log(`[DEBUG] Chemin Système visé: ${realPath}`);
-        
-        if (fs.existsSync(realPath)) {
-            bgUrl = realPath; // Si le fichier existe, on utilise ce chemin absolu
-        } else {
-            console.error(`[ERREUR] Le fichier n'existe pas sur le disque !`);
-            bgUrl = null; // On force le fallback
-        }
-    } else {
-        console.log(`[DEBUG] Mode Lien Web: ${bgUrl}`);
+    // Correction Opacité (Virgule -> Point)
+    let opacity = settings.welcome_opacity;
+    if (typeof opacity === 'string') {
+        opacity = opacity.replace(',', '.'); // On change la virgule en point
     }
+    opacity = parseFloat(opacity);
+    if (isNaN(opacity) || opacity < 0 || opacity > 1) opacity = 0.3; // Valeur par défaut si invalide
 
+    // Correction Couleurs (Si vide -> Blanc)
     const titleText = settings.welcome_title || 'BIENVENUE';
     const colTitle = settings.welcome_title_color || '#ffffff';
     const colUser = settings.welcome_user_color || '#ffffff';
     const colBorder = settings.welcome_border_color || '#ffffff';
-    const opacity = settings.welcome_opacity !== undefined ? Number(settings.welcome_opacity) : 0.3;
     const isCircle = settings.welcome_shape !== 'square';
 
+    // Gestion URL Image
+    let bgUrl = settings.welcome_bg;
+    if (bgUrl && bgUrl.startsWith('/uploads/')) {
+        bgUrl = path.join(process.cwd(), 'public', bgUrl);
+    }
+
+    // --- 2. DESSIN ---
     const canvas = new Canvas(700, 250);
     const ctx = canvas.getContext('2d');
 
-    // 2. Chargement Image
     let bgLoaded = false;
 
+    // Tentative de chargement de l'image (Try/Catch pour éviter le crash)
     if (bgUrl) {
         try {
             const bg = await loadImage(bgUrl);
             applyRoundedCorners(ctx, 0, 0, 700, 250, 30);
             ctx.drawImage(bg, 0, 0, 700, 250);
             bgLoaded = true;
-            console.log("[DEBUG] Image chargée avec SUCCÈS !");
         } catch (e) {
-            console.error("[ERREUR CRITIQUE] Impossible de charger l'image :", e.message);
-            console.error(" -> Vérifie que le lien est direct (i.imgur.com) et pas un album.");
+            console.error(`[ERREUR IMAGE] Impossible de charger: ${bgUrl}`);
+            // On ne fait rien, on laissera le fond rose
         }
-    } else {
-        console.log("[DEBUG] Aucune URL valide fournie.");
     }
 
-    // 3. Fallback (Si échec)
+    // Fond de secours (Si image cassée ou lien album imgur incorrect)
     if (!bgLoaded) {
-        console.log("[DEBUG] Utilisation du fond de secours (Rose).");
         applyRoundedCorners(ctx, 0, 0, 700, 250, 30);
-        ctx.fillStyle = '#ff9aa2';
+        ctx.fillStyle = '#ff9aa2'; // Rose
         ctx.fillRect(0, 0, 700, 250);
     }
 
-    // 4. Suite du dessin (Overlay, Avatar, Texte)
+    // Calque sombre (Opacité corrigée)
     ctx.save();
     ctx.fillStyle = `rgba(0, 0, 0, ${opacity})`;
     ctx.fillRect(0, 0, 700, 250);
     ctx.restore();
 
+    // Avatar
     try {
         const avatarUrl = member.user.displayAvatarURL({ extension: 'png', size: 256 });
         const avatar = await loadImage(avatarUrl);
@@ -107,8 +96,9 @@ module.exports = async (member, settings) => {
         ctx.clip();
         ctx.drawImage(avatar, 45, 45, 160, 160);
         ctx.restore();
-    } catch (e) { console.error("[ERREUR] Problème Avatar:", e.message); }
+    } catch (e) { console.error("Erreur avatar", e); }
 
+    // Textes
     ctx.fillStyle = colTitle;
     ctx.font = 'bold 40px Sans-serif';
     ctx.fillText(titleText, 250, 110);
