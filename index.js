@@ -5,6 +5,7 @@ const { Client, Collection, GatewayIntentBits, REST, Routes, Partials, ActivityT
 const mysql = require('mysql2/promise');
 
 const BOT_COLOR = '#FFB6C1'; 
+// Palette de couleurs pour les embeds (Kawaii Theme)
 const PASTEL_PALETTE = ['#FFB7B2', '#FFDAC1', '#E2F0CB', '#B5EAD7', '#C7CEEA', '#F8B88B', '#FAF884', '#B2CEFE', '#F2A2E8', '#FEF9E7', '#ff9aa2', '#e0f2f1', '#f3e5f5', '#fff3e0', '#fbe9e7'];
 
 const client = new Client({
@@ -12,7 +13,7 @@ const client = new Client({
         GatewayIntentBits.Guilds,
         GatewayIntentBits.GuildMessages,
         GatewayIntentBits.MessageContent, 
-        GatewayIntentBits.GuildMembers,
+        GatewayIntentBits.GuildMembers,   // Important pour les surnoms
         GatewayIntentBits.GuildPresences, 
         GatewayIntentBits.GuildVoiceStates,
         GatewayIntentBits.GuildMessageReactions
@@ -24,7 +25,9 @@ client.commands = new Collection();
 client.color = BOT_COLOR;
 client.pickColor = () => PASTEL_PALETTE[Math.floor(Math.random() * PASTEL_PALETTE.length)];
 
-// 1. CHARGEMENT
+// ============================================================
+// 1. CHARGEMENT DYNAMIQUE (COMMANDES & EVENTS)
+// ============================================================
 const foldersPath = path.join(__dirname, 'commands');
 if (fs.existsSync(foldersPath)) {
     const commandFolders = fs.readdirSync(foldersPath);
@@ -54,9 +57,12 @@ if (fs.existsSync(eventsPath)) {
     }
 }
 
-// 2. DB & LOGIQUE
+// ============================================================
+// 2. BASE DE DONNÉES & LOGIQUE PRINCIPALE
+// ============================================================
 (async () => {
     try {
+        // --- A. Connexion ---
         client.db = mysql.createPool({
             uri: process.env.MYSQL_URL,
             waitForConnections: true, connectionLimit: 10, queueLimit: 0, enableKeepAlive: true, keepAliveInitialDelay: 0
@@ -66,7 +72,7 @@ if (fs.existsSync(eventsPath)) {
         console.log('💾 Base de données connectée.');
         setInterval(async () => { try { await client.db.query('SELECT 1'); } catch (err) {} }, 60000);
 
-        // Tables
+        // --- B. Infrastructure SQL (Tables) ---
         const tables = [
             `CREATE TABLE IF NOT EXISTS levels (user_id VARCHAR(32), guild_id VARCHAR(32), xp INT DEFAULT 0, level INT DEFAULT 0, PRIMARY KEY (user_id, guild_id))`,
             `CREATE TABLE IF NOT EXISTS level_rewards (guild_id VARCHAR(32), level INT, role_id VARCHAR(32), PRIMARY KEY (guild_id, level))`,
@@ -78,13 +84,12 @@ if (fs.existsSync(eventsPath)) {
             `CREATE TABLE IF NOT EXISTS timers (id INT AUTO_INCREMENT PRIMARY KEY, guild_id VARCHAR(32), channel_id VARCHAR(32), role_id VARCHAR(32), message TEXT, interval_minutes INT, last_sent BIGINT DEFAULT 0)`,
             `CREATE TABLE IF NOT EXISTS reaction_roles (id INT AUTO_INCREMENT PRIMARY KEY, guild_id VARCHAR(32), channel_id VARCHAR(32), message_id VARCHAR(32), emoji VARCHAR(255), role_id VARCHAR(32))`,
             `CREATE TABLE IF NOT EXISTS bot_activities (id INT AUTO_INCREMENT PRIMARY KEY, type INT, name VARCHAR(255))`,
-            // NOUVEAU : Table pour les réglages globaux du bot (intervalle de rotation)
             `CREATE TABLE IF NOT EXISTS bot_settings (setting_key VARCHAR(50) PRIMARY KEY, setting_value VARCHAR(255))`,
             `CREATE TABLE IF NOT EXISTS guild_settings (guild_id VARCHAR(32) PRIMARY KEY)`
         ];
         for (const sql of tables) await client.db.execute(sql);
 
-        // Migrations
+        // --- C. Auto-Réparation (Migrations) ---
         const requiredColumns = [
             "ADD COLUMN module_welcome BOOLEAN DEFAULT TRUE", "ADD COLUMN module_levels BOOLEAN DEFAULT TRUE", "ADD COLUMN module_economy BOOLEAN DEFAULT TRUE",
             "ADD COLUMN module_moderation BOOLEAN DEFAULT TRUE", "ADD COLUMN module_security BOOLEAN DEFAULT FALSE", "ADD COLUMN module_social BOOLEAN DEFAULT TRUE",
@@ -100,11 +105,13 @@ if (fs.existsSync(eventsPath)) {
         for (const colSql of requiredColumns) {
             try { await client.db.execute(`ALTER TABLE guild_settings ${colSql}`); } catch (e) { if (e.errno !== 1060) {} }
         }
+        // Vérif spécifique Timers
         try { await client.db.execute("ALTER TABLE timers ADD COLUMN role_id VARCHAR(32) DEFAULT NULL"); } catch(e){}
 
         // Initialisation paramètre par défaut (intervalle 10s)
         await client.db.query("INSERT IGNORE INTO bot_settings (setting_key, setting_value) VALUES ('presence_interval', '10')");
 
+        // --- D. Connexion Discord ---
         await client.login(process.env.DISCORD_TOKEN);
         
         const commandsData = [];
@@ -114,16 +121,16 @@ if (fs.existsSync(eventsPath)) {
         
         console.log(`✨ ${client.user.tag} est en ligne !`);
 
-        // --- STATUS ROTATIF INTELLIGENT ---
+        // --- E. Status Rotatif Intelligent ---
         let activityIndex = 0;
         const rotateStatus = async () => {
             try {
-                // 1. On récupère la liste des activités
+                // 1. Récupération des activités en DB
                 const [activities] = await client.db.query('SELECT * FROM bot_activities');
-                // 2. On récupère le temps de rotation configuré
+                // 2. Récupération de l'intervalle en DB
                 const [settings] = await client.db.query("SELECT setting_value FROM bot_settings WHERE setting_key = 'presence_interval'");
                 let intervalSeconds = settings.length ? parseInt(settings[0].setting_value) : 10;
-                if (intervalSeconds < 5) intervalSeconds = 5; // Sécurité min 5s
+                if (intervalSeconds < 5) intervalSeconds = 5;
 
                 if (activities.length === 0) {
                     client.user.setActivity('le Dashboard 🌸', { type: ActivityType.Watching });
@@ -133,35 +140,42 @@ if (fs.existsSync(eventsPath)) {
                     client.user.setActivity(act.name, { type: act.type });
                 }
 
-                // Relance la fonction après le temps défini (Dynamique)
+                // Relance après X secondes (Dynamique)
                 setTimeout(rotateStatus, intervalSeconds * 1000);
 
             } catch (e) {
                 console.error("Erreur Presence:", e);
-                setTimeout(rotateStatus, 10000); // Retry en cas d'erreur
+                setTimeout(rotateStatus, 10000); // Retry si erreur DB
             }
         };
         rotateStatus(); // Lancement de la boucle
 
+        // --- F. Lancement Services ---
         startBackgroundServices(client);
         require('./website/server')(client);
 
-    } catch (error) { console.error('❌ ERREUR :', error); }
+    } catch (error) { console.error('❌ ERREUR CRITIQUE :', error); }
 })();
 
-// 3. VOCAUX
+// ============================================================
+// 3. LOGIQUE VOCAUX TEMPORAIRES (Surnom Intelligent)
+// ============================================================
 client.on('voiceStateUpdate', async (oldState, newState) => {
     try {
         const guild = newState.guild || oldState.guild;
         if (!guild) return;
+
         const [settings] = await client.db.query('SELECT module_tempvoice, tempvoice_channel_id, tempvoice_category_id FROM guild_settings WHERE guild_id = ?', [guild.id]);
         if (!settings.length || !settings[0].module_tempvoice) return;
         const conf = settings[0];
 
+        // 1. CRÉATION
         if (newState.channelId === conf.tempvoice_channel_id) {
+            // Force le fetch pour avoir le Surnom du serveur
             let member = newState.member;
             if (!member) member = await guild.members.fetch(newState.id).catch(() => null);
             const name = member ? member.displayName : "Inconnu";
+
             const channel = await guild.channels.create({
                 name: `Salon de ${name}`,
                 type: ChannelType.GuildVoice,
@@ -170,15 +184,22 @@ client.on('voiceStateUpdate', async (oldState, newState) => {
             });
             await newState.setChannel(channel);
         }
+
+        // 2. SUPPRESSION
         if (oldState.channelId && oldState.channelId !== conf.tempvoice_channel_id) {
             const channel = oldState.channel;
-            if (channel && channel.members.size === 0 && channel.parentId === conf.tempvoice_category_id) await channel.delete().catch(() => {});
+            if (channel && channel.members.size === 0 && channel.parentId === conf.tempvoice_category_id) {
+                await channel.delete().catch(() => {});
+            }
         }
-    } catch (e) {}
+    } catch (e) { console.error("TempVoice:", e); }
 });
 
-// 4. SERVICES
+// ============================================================
+// 4. SERVICES DE FOND (Timers & Annivs)
+// ============================================================
 function startBackgroundServices(client) {
+    // Timers (Avec Ping de Rôle)
     setInterval(async () => {
         try {
             const [timers] = await client.db.query('SELECT * FROM timers');
@@ -186,6 +207,7 @@ function startBackgroundServices(client) {
             for (const timer of timers) {
                 const [s] = await client.db.query('SELECT module_timers FROM guild_settings WHERE guild_id = ?', [timer.guild_id]);
                 if (!s.length || !s[0].module_timers) continue;
+                
                 if (now - timer.last_sent >= timer.interval_minutes * 60000) {
                     const guild = client.guilds.cache.get(timer.guild_id);
                     if (guild) {
@@ -201,6 +223,7 @@ function startBackgroundServices(client) {
         } catch (e) {}
     }, 60000);
 
+    // Anniversaires (Check journalier)
     let lastCheckDate = "";
     setInterval(async () => {
         try {
