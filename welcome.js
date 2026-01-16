@@ -1,6 +1,6 @@
 const { GlobalFonts, Canvas, Image, SKRSContext2D, loadImage } = require('@napi-rs/canvas');
 
-// Fonction pour couper les coins (Arrondis Kawaii)
+// Fonction utilitaire pour les rectangles arrondis
 function applyRoundedCorners(ctx, x, y, width, height, radius) {
     ctx.beginPath();
     ctx.moveTo(x + radius, y);
@@ -16,58 +16,94 @@ function applyRoundedCorners(ctx, x, y, width, height, radius) {
     ctx.clip();
 }
 
-module.exports = async (member, backgroundUrl, textColor) => {
-    // 1. Création du Canvas (700px x 250px)
+/**
+ * Génère l'image de bienvenue avec les paramètres avancés
+ * @param {GuildMember} member - Le membre qui rejoint
+ * @param {Object} settings - La configuration DB (couleurs, textes, etc.)
+ */
+module.exports = async (member, settings) => {
+    // 1. Récupération des options (avec valeurs par défaut si vide)
+    const bgUrl = settings.welcome_bg || 'https://i.imgur.com/vH1W4Qc.jpeg';
+    const titleText = settings.welcome_title || 'BIENVENUE';
+    const colTitle = settings.welcome_title_color || '#ffffff';
+    const colUser = settings.welcome_user_color || '#ffffff';
+    const colBorder = settings.welcome_border_color || '#ffffff';
+    // Opacité : si indéfini, on met 0.3 par sécurité
+    const opacity = settings.welcome_opacity !== undefined ? Number(settings.welcome_opacity) : 0.3;
+    const isCircle = settings.welcome_shape !== 'square'; // Par défaut 'circle'
+
+    // 2. Initialisation Canvas (700x250)
     const canvas = new Canvas(700, 250);
     const ctx = canvas.getContext('2d');
 
-    // 2. Fond (Background)
+    // 3. Dessin du Fond
     try {
-        const bg = await loadImage(backgroundUrl || 'https://i.imgur.com/vH1W4Qc.jpeg');
-        // On applique des coins arrondis au fond
+        const bg = await loadImage(bgUrl);
+        // On coupe les coins du canvas global
         applyRoundedCorners(ctx, 0, 0, 700, 250, 30);
         ctx.drawImage(bg, 0, 0, 700, 250);
     } catch (e) {
-        // Fallback si l'image est cassée : Fond de couleur
+        // Fallback couleur unie si l'image est cassée
         ctx.fillStyle = '#ff9aa2';
         ctx.fillRect(0, 0, 700, 250);
     }
 
-    // 3. Calque sombre léger pour lisibilité
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+    // 4. Overlay (Calque sombre ou coloré pour la lisibilité)
+    // On réapplique le clip pour être sûr que le calque ne dépasse pas
+    ctx.save();
+    ctx.fillStyle = `rgba(0, 0, 0, ${opacity})`;
     ctx.fillRect(0, 0, 700, 250);
+    ctx.restore();
 
-    // 4. Cercle de l'Avatar
+    // 5. Avatar
     const avatarUrl = member.user.displayAvatarURL({ extension: 'png', size: 256 });
     const avatar = await loadImage(avatarUrl);
     
-    ctx.save(); // On sauvegarde l'état avant de couper
+    ctx.save();
     ctx.beginPath();
-    ctx.arc(125, 125, 80, 0, Math.PI * 2, true); // Cercle x=125, y=125, rayon=80
-    ctx.closePath();
-    ctx.lineWidth = 8;
-    ctx.strokeStyle = textColor || '#ffffff';
-    ctx.stroke(); // Bordure
-    ctx.clip(); // On coupe tout ce qui dépasse
-    ctx.drawImage(avatar, 45, 45, 160, 160);
-    ctx.restore(); // On annule la coupure pour le texte
-
-    // 5. Textes
-    ctx.fillStyle = textColor || '#ffffff';
     
-    // "BIENVENUE"
-    ctx.font = 'bold 40px Sans-serif';
-    ctx.fillText('BIENVENUE', 250, 110);
+    // Logique Forme : Rond ou Carré Arrondi
+    if (isCircle) {
+        // Cercle (x=125, y=125, r=80)
+        ctx.arc(125, 125, 80, 0, Math.PI * 2, true);
+    } else {
+        // Carré arrondi (x=45, y=45, w=160, h=160)
+        const r = 20; // Rayon des coins du carré
+        const x=45, y=45, w=160, h=160;
+        ctx.moveTo(x+r, y); ctx.lineTo(x+w-r, y); ctx.quadraticCurveTo(x+w, y, x+w, y+r);
+        ctx.lineTo(x+w, y+h-r); ctx.quadraticCurveTo(x+w, y+h, x+w-r, y+h);
+        ctx.lineTo(x+r, y+h); ctx.quadraticCurveTo(x, y+h, x, y+h-r);
+        ctx.lineTo(x, y+r); ctx.quadraticCurveTo(x, y, x+r, y);
+    }
+    
+    ctx.closePath();
+    
+    // Bordure
+    ctx.lineWidth = 8;
+    ctx.strokeStyle = colBorder;
+    ctx.stroke();
+    
+    // Coupure et dessin de l'image
+    ctx.clip();
+    ctx.drawImage(avatar, 45, 45, 160, 160);
+    ctx.restore();
 
-    // Pseudo
+    // 6. Textes
+    // Titre (BIENVENUE)
+    ctx.fillStyle = colTitle;
+    ctx.font = 'bold 40px Sans-serif';
+    ctx.fillText(titleText, 250, 110);
+
+    // Pseudo (Auto-scaling)
+    ctx.fillStyle = colUser;
     ctx.font = '60px Sans-serif';
     let fontSize = 60;
     const name = member.displayName.toUpperCase();
     
-    // Réduire la taille si le pseudo est trop long
+    // Réduit la police tant que le texte est trop large (> 400px)
     do {
         ctx.font = `${fontSize -= 2}px Sans-serif`;
-    } while (ctx.measureText(name).width > 400);
+    } while (ctx.measureText(name).width > 400 && fontSize > 10);
     
     ctx.fillText(name, 250, 175);
 

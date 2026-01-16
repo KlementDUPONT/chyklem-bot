@@ -177,44 +177,88 @@
             <div id="presence" class="module-section">
                 <h2>Présence Bot 🤖</h2>
                 <div class="alert alert-info border-0 shadow-sm"><i class="fas fa-info-circle me-2"></i> Ces statuts sont globaux et tournent en boucle.</div>
-                
                 <div class="config-box">
                     <p class="text-muted">Utilisez le formulaire ci-dessous pour ajouter des statuts ou changer la vitesse.</p>
                 </div>
             </div>
 
             <div id="welcome" class="module-section">
-                <h2>Bienvenue</h2>
-                <div class="config-box">
-                    <div class="row g-3">
-                        <div class="col-md-6">
-                            <label class="form-label">Salon d'arrivée</label>
-                            <select name="welcome_channel_id" class="form-select">
-                                <option value="">Désactivé</option>
-                                <% channels.forEach(c => { if(c.type===0){ %> <option value="<%= c.id %>" <%= settings.welcome_channel_id===c.id?'selected':'' %>>#<%= c.name %></option> <% }}) %>
-                            </select>
-                        </div>
-                        
-                        <div class="col-md-12 text-center my-3">
-                             <img src="<%= settings.welcome_bg || 'https://i.imgur.com/vH1W4Qc.jpeg' %>" 
-                                  style="max-height: 150px; border-radius: 15px; border: 3px solid <%= settings.welcome_color || '#ffffff' %>; object-fit: cover; width: 100%;">
-                             <p class="text-muted small mt-1">Aperçu du fond</p>
-                        </div>
+                <h2>Studio Bienvenue 🎨</h2>
+                <div class="row">
+                    <div class="col-lg-6">
+                        <div class="config-box h-100">
+                            <h5>Aperçu & Fond</h5>
+                            
+                            <div class="position-relative mb-3 text-center text-white" style="height: 180px; border-radius: 20px; overflow: hidden; background: #333;">
+                                <img src="<%= settings.welcome_bg || 'https://i.imgur.com/vH1W4Qc.jpeg' %>" style="width: 100%; height: 100%; object-fit: cover; opacity: 1;">
+                                <div style="position:absolute; top:0; left:0; width:100%; height:100%; background: rgba(0,0,0, <%= settings.welcome_opacity !== undefined ? settings.welcome_opacity : 0.3 %>);"></div>
+                                <div style="position:absolute; top:50%; left:50%; transform: translate(-50%, -50%); width: 100%;">
+                                    <h2 style="color: <%= settings.welcome_title_color || '#fff' %>; font-size: 24px; margin: 0; font-weight: bold;"><%= settings.welcome_title || 'BIENVENUE' %></h2>
+                                    <h1 style="color: <%= settings.welcome_user_color || '#fff' %>; font-size: 30px; margin: 5px 0;">USER</h1>
+                                </div>
+                                <div style="position: absolute; left: 30px; top: 50%; transform: translateY(-50%); width: 80px; height: 80px; border: 4px solid <%= settings.welcome_border_color || '#fff' %>; border-radius: <%= settings.welcome_shape === 'square' ? '10px' : '50%' %>; background: #aaa;"></div>
+                            </div>
+                            
+                            <label class="form-label">URL Image de Fond</label>
+                            <input type="text" name="welcome_bg" class="form-control mb-3" value="<%= settings.welcome_bg %>" placeholder="https://...">
 
-                        <div class="col-md-9">
-                            <label class="form-label">URL de l'Image de fond</label>
-                            <input type="text" name="welcome_bg" class="form-control" value="<%= settings.welcome_bg %>" placeholder="https://...">
+                            <label class="form-label">Opacité du fond sombre (0 à 1)</label>
+                            <input type="number" name="welcome_opacity" class="form-control" step="0.1" min="0" max="1" value="<%= settings.welcome_opacity !== undefined ? settings.welcome_opacity : 0.3 %>">
+                            <div class="form-text">0 = Transparent, 1 = Tout noir. Recommandé : 0.3</div>
                         </div>
-                        
-                        <div class="col-md-3">
-                            <label class="form-label">Couleur Texte</label>
-                            <input type="color" name="welcome_color" class="form-control form-control-color w-100" value="<%= settings.welcome_color || '#ffffff' %>" title="Choisir la couleur">
-                        </div>
+                    </div>
 
-                        <div class="col-md-12">
-                            <label class="form-label">Message de bienvenue</label>
-                            <textarea name="welcome_message" class="form-control" rows="2"><%= settings.welcome_message %></textarea>
-                            <div class="form-text text-muted">Variables : {user}, {server}, {count}</div>
+                    <div class="col-lg-6">
+                        <div class="config-box h-100">
+                            <h5>Configuration Texte</h5>
+                            
+                            <div class="row g-2 mb-3">
+                                <div class="col-md-8">
+                                    <label class="form-label">Titre principal</label>
+                                    <input type="text" name="welcome_title" class="form-control" value="<%= settings.welcome_title || 'BIENVENUE' %>">
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label">Couleur Titre</label>
+                                    <input type="color" name="welcome_title_color" class="form-control form-control-color w-100" value="<%= settings.welcome_title_color || '#ffffff' %>">
+                                </div>
+                            </div>
+
+                            <div class="row g-2 mb-3">
+                                <div class="col-md-8">
+                                    <label class="form-label">Couleur du Pseudo</label>
+                                    <input type="color" name="welcome_user_color" class="form-control form-control-color w-100" value="<%= settings.welcome_user_color || '#ffffff' %>">
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label">Bordure Avatar</label>
+                                    <input type="color" name="welcome_border_color" class="form-control form-control-color w-100" value="<%= settings.welcome_border_color || '#ffffff' %>">
+                                </div>
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label">Forme Avatar</label>
+                                <select name="welcome_shape" class="form-select">
+                                    <option value="circle" <%= settings.welcome_shape === 'circle' ? 'selected' : '' %>>Rond (Cercle)</option>
+                                    <option value="square" <%= settings.welcome_shape === 'square' ? 'selected' : '' %>>Carré (Arrondi)</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-12 mt-4">
+                        <div class="config-box">
+                            <div class="row">
+                                <div class="col-md-4">
+                                    <label class="form-label">Salon d'envoi</label>
+                                    <select name="welcome_channel_id" class="form-select">
+                                        <option value="">Désactivé</option>
+                                        <% channels.forEach(c => { if(c.type===0){ %> <option value="<%= c.id %>" <%= settings.welcome_channel_id===c.id?'selected':'' %>>#<%= c.name %></option> <% }}) %>
+                                    </select>
+                                </div>
+                                <div class="col-md-8">
+                                    <label class="form-label">Message texte (au-dessus de l'image)</label>
+                                    <input type="text" name="welcome_message" class="form-control" value="<%= settings.welcome_message %>">
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -291,51 +335,27 @@
         <div id="presence_actions" class="module-sub-section" style="display:none;">
             <div class="config-box mb-4">
                 <form action="/settings/<%= guild.id %>/presence/config" method="POST" class="row g-2 align-items-end">
-                    <div class="col-md-9">
-                        <label class="form-label">Temps entre chaque message (secondes)</label>
-                        <input type="number" name="interval" class="form-control" value="<%= locals.presenceInterval %>" min="5">
-                    </div>
-                    <div class="col-md-3">
-                        <button class="btn btn-warning w-100">Appliquer Vitesse</button>
-                    </div>
+                    <div class="col-md-9"><label class="form-label">Temps entre chaque message (secondes)</label><input type="number" name="interval" class="form-control" value="<%= locals.presenceInterval %>" min="5"></div>
+                    <div class="col-md-3"><button class="btn btn-warning w-100">Appliquer Vitesse</button></div>
                 </form>
             </div>
-
             <div class="config-box">
                 <h5>Ajouter une activité</h5>
                 <form action="/settings/<%= guild.id %>/presence/add" method="POST" class="row g-2 align-items-end">
-                    <div class="col-md-3">
-                        <label class="form-label">Type</label>
-                        <select name="type" class="form-select">
-                            <option value="0">Joue à</option>
-                            <option value="2">Écoute</option>
-                            <option value="3">Regarde</option>
-                            <option value="5">Participe à</option>
-                        </select>
-                    </div>
-                    <div class="col-md-7"><label class="form-label">Texte</label><input type="text" name="name" class="form-control" placeholder="ex: une super vidéo" required></div>
+                    <div class="col-md-3"><select name="type" class="form-select"><option value="0">Joue à</option><option value="2">Écoute</option><option value="3">Regarde</option><option value="5">Participe à</option></select></div>
+                    <div class="col-md-7"><input type="text" name="name" class="form-control" placeholder="ex: une super vidéo" required></div>
                     <div class="col-md-2"><button class="btn btn-primary w-100">Ajouter</button></div>
                 </form>
             </div>
-
             <div class="config-box mt-4">
                 <h5>Rotation Actuelle</h5>
                 <table class="table">
                     <% if(locals.botActivities && botActivities.length > 0) { %>
                         <% botActivities.forEach(act => { %>
                             <tr>
-                                <td>
-                                    <span class="badge bg-secondary">
-                                        <%= act.type === 0 ? 'JOUE À' : act.type === 2 ? 'ÉCOUTE' : act.type === 3 ? 'REGARDE' : 'AUTRE' %>
-                                    </span>
-                                </td>
+                                <td><span class="badge bg-secondary"><%= act.type === 0 ? 'JOUE À' : act.type === 2 ? 'ÉCOUTE' : act.type === 3 ? 'REGARDE' : 'AUTRE' %></span></td>
                                 <td><%= act.name %></td>
-                                <td class="text-end">
-                                    <form action="/settings/<%= guild.id %>/presence/delete" method="POST">
-                                        <input type="hidden" name="id" value="<%= act.id %>">
-                                        <button class="btn btn-danger btn-sm">X</button>
-                                    </form>
-                                </td>
+                                <td class="text-end"><form action="/settings/<%= guild.id %>/presence/delete" method="POST"><input type="hidden" name="id" value="<%= act.id %>"><button class="btn btn-danger btn-sm">X</button></form></td>
                             </tr>
                         <% }) %>
                     <% } else { %>
@@ -352,13 +372,7 @@
                         <div class="col-md-3"><label class="form-label">Salon</label><select name="channel_id" class="form-select"><% channels.forEach(c => { if(c.type===0){ %><option value="<%= c.id %>">#<%= c.name %></option><% }}) %></select></div>
                         <div class="col-md-3"><label class="form-label">Ping Rôle</label><select name="role_id" class="form-select"><option value="">Aucun</option><% roles.forEach(r => { if(r.name!=='@everyone'){ %><option value="<%= r.id %>">@<%= r.name %></option><% }}) %></select></div>
                         <div class="col-md-2"><label class="form-label">Min</label><input type="number" name="interval" class="form-control" placeholder="60" required></div>
-                        <div class="col-md-4">
-                            <label class="form-label">Message</label>
-                            <div class="input-group">
-                                <input type="text" name="message" class="form-control" required>
-                                <button class="btn btn-primary">Ajouter</button>
-                            </div>
-                        </div>
+                        <div class="col-md-4"><div class="input-group"><input type="text" name="message" class="form-control" required><button class="btn btn-primary">Ajouter</button></div></div>
                     </div>
                 </form>
             </div>
@@ -372,12 +386,7 @@
                                 <td><% if(t.role_id){ %><span class="badge bg-warning text-dark">@<%= (roles.get(t.role_id)||{}).name %></span><% } else { %>-<% } %></td>
                                 <td><%= t.interval_minutes %>m</td>
                                 <td><%= t.message %></td>
-                                <td>
-                                    <form action="/settings/<%= guild.id %>/timers/delete" method="POST">
-                                        <input type="hidden" name="id" value="<%= t.id %>">
-                                        <button class="btn btn-danger btn-sm">X</button>
-                                    </form>
-                                </td>
+                                <td><form action="/settings/<%= guild.id %>/timers/delete" method="POST"><input type="hidden" name="id" value="<%= t.id %>"><button class="btn btn-danger btn-sm">X</button></form></td>
                             </tr>
                         <% }) %>
                     </tbody>
@@ -402,12 +411,7 @@
                             <td>#<%= (channels.get(rr.channel_id)||{}).name %></td>
                             <td><%= rr.emoji %></td>
                             <td><%= (roles.get(rr.role_id)||{}).name %></td>
-                            <td>
-                                <form action="/settings/<%= guild.id %>/rr/delete" method="POST">
-                                    <input type="hidden" name="id" value="<%= rr.id %>">
-                                    <button class="btn btn-danger btn-sm">X</button>
-                                </form>
-                            </td>
+                            <td><form action="/settings/<%= guild.id %>/rr/delete" method="POST"><input type="hidden" name="id" value="<%= rr.id %>"><button class="btn btn-danger btn-sm">X</button></form></td>
                         </tr>
                     <% }) %>
                 </table>
@@ -421,12 +425,7 @@
                     <% economyTop.forEach((eco, index) => { %>
                         <tr>
                             <td width="50">#<%= index+1 %></td>
-                            <td>
-                                <div class="user-cell">
-                                    <img src="<%= eco.avatar %>" class="user-avatar">
-                                    <strong><%= eco.displayName %></strong>
-                                </div>
-                            </td>
+                            <td><div class="user-cell"><img src="<%= eco.avatar %>" class="user-avatar"><strong><%= eco.displayName %></strong></div></td>
                             <td class="text-end fw-bold text-success"><%= eco.money %> $</td>
                         </tr>
                     <% }) %>
@@ -459,12 +458,7 @@
                         <tr>
                             <td><%= c.trigger_word %></td>
                             <td><%= c.response_text %></td>
-                            <td>
-                                <form action="/settings/<%= guild.id %>/commands/delete" method="POST">
-                                    <input type="hidden" name="command_id" value="<%= c.id %>">
-                                    <button class="btn btn-danger btn-sm">X</button>
-                                </form>
-                            </td>
+                            <td><form action="/settings/<%= guild.id %>/commands/delete" method="POST"><input type="hidden" name="command_id" value="<%= c.id %>"><button class="btn btn-danger btn-sm">X</button></form></td>
                         </tr>
                     <% }) %>
                 </table>
@@ -478,35 +472,27 @@
     const activeTabFromServer = "<%= activeTab %>";
 
     function openTab(id) {
-        // 1. Gérer les sections principales (Checkboxes & Settings)
         document.querySelectorAll('.module-section').forEach(el => el.classList.remove('active'));
         const target = document.getElementById(id);
         if(target) target.classList.add('active');
 
-        // 2. Gérer les sections d'actions séparées (Forms additionnels)
         document.querySelectorAll('.module-sub-section').forEach(el => el.style.display = 'none');
-        
         if(id === 'presence') document.getElementById('presence_actions').style.display = 'block';
         if(id === 'timers') document.getElementById('timers_actions').style.display = 'block';
         if(id === 'reactionroles') document.getElementById('rr_actions').style.display = 'block';
         if(id === 'economy') document.getElementById('economy_actions').style.display = 'block';
         if(id === 'customcmds') document.getElementById('cmds_actions').style.display = 'block';
 
-        // 3. Gérer la Sidebar
         document.querySelectorAll('.nav-btn').forEach(el => el.classList.remove('active'));
         const btns = document.querySelectorAll('.nav-btn');
         btns.forEach(btn => {
             if(btn.innerHTML.includes(id) || (id==='overview' && btn.innerHTML.includes('Accueil'))) btn.classList.add('active');
         });
 
-        // 4. Mettre à jour l'input pour la sauvegarde
         document.getElementById('currentTabInput').value = id;
     }
 
-    // Init
     window.onload = () => { openTab(activeTabFromServer); };
-    
-    // Détection changement pour save bar
     document.getElementById('settingsForm').addEventListener('change', () => document.getElementById('saveBar').classList.add('show'));
 </script>
 </body>

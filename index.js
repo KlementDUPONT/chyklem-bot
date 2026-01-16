@@ -3,7 +3,7 @@ const fs = require('fs');
 const path = require('path');
 const { Client, Collection, GatewayIntentBits, REST, Routes, Partials, ActivityType, ChannelType, PermissionFlagsBits, AttachmentBuilder } = require('discord.js');
 const mysql = require('mysql2/promise');
-const generateWelcomeImage = require('./welcome'); // <--- IMPORT DU NOUVEAU FICHIER
+const generateWelcomeImage = require('./welcome'); // Import du moteur
 
 const BOT_COLOR = '#FFB6C1'; 
 const PASTEL_PALETTE = ['#FFB7B2', '#FFDAC1', '#E2F0CB', '#B5EAD7', '#C7CEEA', '#F8B88B', '#FAF884', '#B2CEFE', '#F2A2E8', '#FEF9E7', '#ff9aa2', '#e0f2f1', '#f3e5f5', '#fff3e0', '#fbe9e7'];
@@ -13,7 +13,7 @@ const client = new Client({
         GatewayIntentBits.Guilds,
         GatewayIntentBits.GuildMessages,
         GatewayIntentBits.MessageContent, 
-        GatewayIntentBits.GuildMembers, // CRUCIAL pour détecter l'arrivée
+        GatewayIntentBits.GuildMembers,
         GatewayIntentBits.GuildPresences, 
         GatewayIntentBits.GuildVoiceStates,
         GatewayIntentBits.GuildMessageReactions
@@ -40,7 +40,6 @@ if (fs.existsSync(foldersPath)) {
         }
     }
 }
-// (Events folder ignoré ici car tout est dans index.js pour éviter les conflits)
 
 // 2. DB & LOGIQUE
 (async () => {
@@ -66,17 +65,28 @@ if (fs.existsSync(foldersPath)) {
         ];
         for (const sql of tables) await client.db.execute(sql);
 
-        // Migrations
+        // Migrations (Colonnes)
         const requiredColumns = [
             "ADD COLUMN module_welcome BOOLEAN DEFAULT TRUE", "ADD COLUMN module_levels BOOLEAN DEFAULT TRUE", "ADD COLUMN module_economy BOOLEAN DEFAULT TRUE",
-            "ADD COLUMN module_moderation BOOLEAN DEFAULT TRUE", "ADD COLUMN module_security BOOLEAN DEFAULT FALSE", "ADD COLUMN module_social BOOLEAN DEFAULT TRUE",
-            "ADD COLUMN module_customcmds BOOLEAN DEFAULT TRUE", "ADD COLUMN module_timers BOOLEAN DEFAULT FALSE", "ADD COLUMN module_tempvoice BOOLEAN DEFAULT FALSE",
-            "ADD COLUMN module_reactionroles BOOLEAN DEFAULT TRUE", "ADD COLUMN welcome_channel_id VARCHAR(32) DEFAULT NULL", "ADD COLUMN welcome_message VARCHAR(1000) DEFAULT 'Bienvenue {user} ! 🌸'", 
-            "ADD COLUMN welcome_bg VARCHAR(500) DEFAULT 'https://i.imgur.com/vH1W4Qc.jpeg'", "ADD COLUMN welcome_color VARCHAR(10) DEFAULT '#ffffff'", 
-            "ADD COLUMN autorole_id VARCHAR(32) DEFAULT NULL", "ADD COLUMN levels_enabled BOOLEAN DEFAULT TRUE",
+            "ADD COLUMN module_moderation BOOLEAN DEFAULT TRUE", "ADD COLUMN module_social BOOLEAN DEFAULT TRUE", "ADD COLUMN module_customcmds BOOLEAN DEFAULT TRUE",
+            "ADD COLUMN module_timers BOOLEAN DEFAULT FALSE", "ADD COLUMN module_tempvoice BOOLEAN DEFAULT FALSE", "ADD COLUMN module_reactionroles BOOLEAN DEFAULT TRUE",
+            
+            // CONFIG BIENVENUE AVANCÉE
+            "ADD COLUMN welcome_channel_id VARCHAR(32) DEFAULT NULL", 
+            "ADD COLUMN welcome_message VARCHAR(1000) DEFAULT 'Bienvenue {user} ! 🌸'", 
+            "ADD COLUMN welcome_bg VARCHAR(500) DEFAULT 'https://i.imgur.com/vH1W4Qc.jpeg'", 
+            "ADD COLUMN welcome_title VARCHAR(50) DEFAULT 'BIENVENUE'",
+            "ADD COLUMN welcome_title_color VARCHAR(10) DEFAULT '#ffffff'",
+            "ADD COLUMN welcome_user_color VARCHAR(10) DEFAULT '#ffffff'",
+            "ADD COLUMN welcome_border_color VARCHAR(10) DEFAULT '#ffffff'",
+            "ADD COLUMN welcome_opacity DECIMAL(2,1) DEFAULT 0.3",
+            "ADD COLUMN welcome_shape VARCHAR(10) DEFAULT 'circle'",
+            "ADD COLUMN autorole_id VARCHAR(32) DEFAULT NULL", 
+
+            // AUTRES
+            "ADD COLUMN levels_enabled BOOLEAN DEFAULT TRUE",
             "ADD COLUMN level_up_message VARCHAR(1000) DEFAULT '🎉 Bravo {user}, tu passes au Niveau {level} !'", "ADD COLUMN log_channel_id VARCHAR(32) DEFAULT NULL",
-            "ADD COLUMN automod_enabled BOOLEAN DEFAULT FALSE", "ADD COLUMN automod_words TEXT DEFAULT NULL", "ADD COLUMN antiraid_enabled BOOLEAN DEFAULT FALSE",
-            "ADD COLUMN antiraid_account_age_days INT DEFAULT 7", "ADD COLUMN birthday_channel_id VARCHAR(32) DEFAULT NULL",
+            "ADD COLUMN automod_enabled BOOLEAN DEFAULT FALSE", "ADD COLUMN automod_words TEXT DEFAULT NULL", "ADD COLUMN birthday_channel_id VARCHAR(32) DEFAULT NULL",
             "ADD COLUMN tempvoice_channel_id VARCHAR(32) DEFAULT NULL", "ADD COLUMN tempvoice_category_id VARCHAR(32) DEFAULT NULL"
         ];
         for (const colSql of requiredColumns) { try { await client.db.execute(`ALTER TABLE guild_settings ${colSql}`); } catch (e) { if (e.errno !== 1060) {} } }
@@ -119,9 +129,7 @@ if (fs.existsSync(foldersPath)) {
     } catch (error) { console.error('❌ ERREUR :', error); }
 })();
 
-// ============================================================
-// 3. EVENT : ARRIVÉE D'UN MEMBRE (BIENVENUE)
-// ============================================================
+// 3. EVENT : ARRIVÉE D'UN MEMBRE (Appel le nouveau moteur)
 client.on('guildMemberAdd', async member => {
     try {
         const [settings] = await client.db.query('SELECT * FROM guild_settings WHERE guild_id = ?', [member.guild.id]);
@@ -131,20 +139,17 @@ client.on('guildMemberAdd', async member => {
         const channel = member.guild.channels.cache.get(conf.welcome_channel_id);
         if (!channel) return;
 
-        // 1. Message Texte (avec remplacements)
-        let messageText = conf.welcome_message
+        let messageText = (conf.welcome_message || 'Bienvenue {user} !')
             .replace('{user}', `<@${member.id}>`)
             .replace('{server}', member.guild.name)
             .replace('{count}', member.guild.memberCount);
 
-        // 2. Génération Image (via welcome.js)
-        const buffer = await generateWelcomeImage(member, conf.welcome_bg, conf.welcome_color);
+        // On passe TOUTE la config au générateur
+        const buffer = await generateWelcomeImage(member, conf);
         const attachment = new AttachmentBuilder(buffer, { name: 'welcome.png' });
 
-        // 3. Envoi
         channel.send({ content: messageText, files: [attachment] }).catch(console.error);
 
-        // 4. AutoRole (si configuré)
         if (conf.autorole_id) {
             const role = member.guild.roles.cache.get(conf.autorole_id);
             if (role) member.roles.add(role).catch(() => {});
@@ -153,9 +158,7 @@ client.on('guildMemberAdd', async member => {
     } catch (e) { console.error("Erreur Welcome:", e); }
 });
 
-// ============================================================
-// 4. LOGIQUE VOCAUX (Surnom Intelligent)
-// ============================================================
+// 4. VOCAUX TEMP
 client.on('voiceStateUpdate', async (oldState, newState) => {
     try {
         const guild = newState.guild || oldState.guild; if (!guild) return;
@@ -180,7 +183,7 @@ client.on('voiceStateUpdate', async (oldState, newState) => {
     } catch (e) {}
 });
 
-// SERVICES & ANTI-ZOMBIE
+// SERVICES
 function startBackgroundServices(client) {
     setInterval(async () => {
         try {
