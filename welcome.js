@@ -2,6 +2,7 @@ const { GlobalFonts, Canvas, Image, SKRSContext2D, loadImage } = require('@napi-
 const fs = require('fs');
 const path = require('path');
 
+// Fonction pour les arrondis
 function applyRoundedCorners(ctx, x, y, width, height, radius) {
     ctx.beginPath();
     ctx.moveTo(x + radius, y);
@@ -18,15 +19,29 @@ function applyRoundedCorners(ctx, x, y, width, height, radius) {
 }
 
 module.exports = async (member, settings) => {
-    // 1. Récupération des paramètres
+    console.log("--- [DEBUG] GÉNÉRATION BIENVENUE ---");
+    
+    // 1. Récupération & Nettoyage URL
     let bgUrl = settings.welcome_bg;
     
-    // Si c'est un fichier local (/uploads/...), on construit le chemin complet du disque
+    // Gestion Fichier Local (Upload)
     if (bgUrl && bgUrl.startsWith('/uploads/')) {
-        bgUrl = path.join(__dirname, 'public', bgUrl); 
+        // process.cwd() = La racine du bot (/app)
+        // On construit : /app/public/uploads/nomdufichier.png
+        const realPath = path.join(process.cwd(), 'public', bgUrl);
+        console.log(`[DEBUG] Mode Fichier Local détecté.`);
+        console.log(`[DEBUG] Chemin DB: ${bgUrl}`);
+        console.log(`[DEBUG] Chemin Système visé: ${realPath}`);
+        
+        if (fs.existsSync(realPath)) {
+            bgUrl = realPath; // Si le fichier existe, on utilise ce chemin absolu
+        } else {
+            console.error(`[ERREUR] Le fichier n'existe pas sur le disque !`);
+            bgUrl = null; // On force le fallback
+        }
+    } else {
+        console.log(`[DEBUG] Mode Lien Web: ${bgUrl}`);
     }
-    // Si pas d'image définie, fallback sur une couleur
-    if (!bgUrl || bgUrl === '') bgUrl = null;
 
     const titleText = settings.welcome_title || 'BIENVENUE';
     const colTitle = settings.welcome_title_color || '#ffffff';
@@ -38,33 +53,38 @@ module.exports = async (member, settings) => {
     const canvas = new Canvas(700, 250);
     const ctx = canvas.getContext('2d');
 
-    // 2. Dessin du Fond (Sécurisé)
+    // 2. Chargement Image
     let bgLoaded = false;
+
     if (bgUrl) {
         try {
             const bg = await loadImage(bgUrl);
             applyRoundedCorners(ctx, 0, 0, 700, 250, 30);
             ctx.drawImage(bg, 0, 0, 700, 250);
             bgLoaded = true;
+            console.log("[DEBUG] Image chargée avec SUCCÈS !");
         } catch (e) {
-            console.error("Erreur chargement image fond:", e.message);
+            console.error("[ERREUR CRITIQUE] Impossible de charger l'image :", e.message);
+            console.error(" -> Vérifie que le lien est direct (i.imgur.com) et pas un album.");
         }
+    } else {
+        console.log("[DEBUG] Aucune URL valide fournie.");
     }
 
+    // 3. Fallback (Si échec)
     if (!bgLoaded) {
-        // Fond de secours si l'image est cassée ou absente
+        console.log("[DEBUG] Utilisation du fond de secours (Rose).");
         applyRoundedCorners(ctx, 0, 0, 700, 250, 30);
-        ctx.fillStyle = '#ff9aa2'; // Rose par défaut
+        ctx.fillStyle = '#ff9aa2';
         ctx.fillRect(0, 0, 700, 250);
     }
 
-    // 3. Overlay
+    // 4. Suite du dessin (Overlay, Avatar, Texte)
     ctx.save();
     ctx.fillStyle = `rgba(0, 0, 0, ${opacity})`;
     ctx.fillRect(0, 0, 700, 250);
     ctx.restore();
 
-    // 4. Avatar
     try {
         const avatarUrl = member.user.displayAvatarURL({ extension: 'png', size: 256 });
         const avatar = await loadImage(avatarUrl);
@@ -87,11 +107,8 @@ module.exports = async (member, settings) => {
         ctx.clip();
         ctx.drawImage(avatar, 45, 45, 160, 160);
         ctx.restore();
-    } catch (e) {
-        console.error("Erreur avatar:", e);
-    }
+    } catch (e) { console.error("[ERREUR] Problème Avatar:", e.message); }
 
-    // 5. Textes
     ctx.fillStyle = colTitle;
     ctx.font = 'bold 40px Sans-serif';
     ctx.fillText(titleText, 250, 110);
