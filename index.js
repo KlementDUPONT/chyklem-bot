@@ -250,4 +250,18 @@ function startBackgroundServices(client) {
     }, 60000);
 }
 
+// Handler Interactions
 client.on('interactionCreate', async i => { if (!i.isChatInputCommand()) return; });
+
+// ============================================================
+// 5. ANTI-ZOMBIE (Arrêt Propre)
+// ============================================================
+const cleanExit = () => {
+    console.log('🛑 Arrêt demandé... Déconnexion propre.');
+    client.destroy();
+    client.db.end();
+    process.exit(0);
+};
+
+process.on('SIGTERM', cleanExit);
+process.on('SIGINT', cleanExit);
